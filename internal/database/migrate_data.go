@@ -61,6 +61,12 @@ func migrationModels() []any {
 		&model.OutboundSubscription{},
 		&model.SubBalancer{},
 		&model.TuicTrafficReceipt{},
+		&model.ChainPool{},
+		&model.ChainProxy{},
+		&model.ChainNode{},
+		&model.ChainNodeHop{},
+		&model.ChainJob{},
+		&model.ChainAudit{},
 	}
 }
 

@@ -287,3 +287,14 @@ func init() {
 	}
 	_ = copyFile(oldDBPath, newDBPath) // ignore error
 }
+
+// IsChainEnabled reports whether the chain-proxy module is active. It is on by
+// default so a stock install keeps working; XUI_CHAIN_ENABLED=false disables
+// both the menu data and the config injection.
+func IsChainEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("XUI_CHAIN_ENABLED"))) {
+	case "0", "false", "off", "no":
+		return false
+	}
+	return true
+}

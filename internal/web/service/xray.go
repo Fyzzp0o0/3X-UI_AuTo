@@ -13,6 +13,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
+	"github.com/mhsanaei/3x-ui/v3/internal/chain/inject"
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -482,6 +483,14 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 
 	xrayConfig.RouterConfig = dropRefusedScript(xrayConfig.RouterConfig, "routing", routingScriptRefused)
 	xrayConfig.DNSConfig = dropRefusedScript(xrayConfig.DNSConfig, "dns", dnsScriptRefused)
+
+	// Chain-proxy outbounds/rules are injected last so every healing and merge
+	// above sees the final shape. A failure aborts config generation on purpose:
+	// RestartXray then keeps the previous config instead of publishing one whose
+	// customers would egress directly.
+	if err := inject.Inject(xrayConfig); err != nil {
+		return nil, err
+	}
 	return xrayConfig, nil
 }
 
