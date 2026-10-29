@@ -216,7 +216,7 @@ make chain-e2e XRAY_E2E_BINARY=/path/to/xray  # 真实核心端到端
 
 发布：Actions → **Chain Release** → 运行（填写 tag），会构建 `linux-amd64/arm64` 两个包并附加到 Release；安装脚本据此下载。
 
-> 说明：本仓库默认关闭了 Actions（避免上游 CI 在无 secrets 时报红），发布前需在 Settings → Actions 打开。
+> 说明：本仓库默认关闭了 Actions。发布前在 Settings → Actions 打开，并只保留 **Chain Release**（上游 CI/release/docker 工作流建议在 Actions 页面 Disable，避免缺少 secrets 的失败运行）。由 `GITHUB_TOKEN` 创建的 tag 不会再次触发其它工作流。
 
 ## 已知限制与路线图
 
