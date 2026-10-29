@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Button, Card, Modal, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 import { getMessage } from '@/utils/messageBus';
@@ -31,7 +31,9 @@ export default function NodesTab() {
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<number | null>(null);
   const { data, isLoading } = useChainNodes({ poolId, status, page, size: 50 });
-  const { setNodeEnabled, rebindNode } = useChainMutations();
+  const { setNodeEnabled, rebindNode, bulkNodes, exportLinks } = useChainMutations();
+  const [modal, modalContextHolder] = Modal.useModal();
+  const [selected, setSelected] = useState<number[]>([]);
 
   const toggle = async (node: ChainNode) => {
     const enable = node.status === 'disabled' || !node.clientEnabled;
@@ -52,6 +54,43 @@ export default function NodesTab() {
     } catch (error) {
       getMessage().error((error as Error).message);
     }
+  };
+
+  const runBulk = async (action: string) => {
+    try {
+      const res = await bulkNodes({ ids: selected, action });
+      getMessage().success(
+        t('pages.chainProxy.toasts.bulkDone', { count: res?.affected ?? selected.length }),
+      );
+      setSelected([]);
+    } catch (error) {
+      getMessage().error((error as Error).message);
+    }
+  };
+
+  const exportSelected = async () => {
+    try {
+      const ids = selected.length > 0 ? selected : [];
+      const links = await exportLinks({ ids, poolId: selected.length > 0 ? 0 : (poolId ?? 0) });
+      const blob = new Blob([links.join('\n') + '\n'], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'chain-links.txt';
+      anchor.click();
+      URL.revokeObjectURL(url);
+      getMessage().success(t('pages.chainProxy.toasts.exported', { count: links.length }));
+    } catch (error) {
+      getMessage().error((error as Error).message);
+    }
+  };
+
+  const confirmBulkDelete = () => {
+    modal.confirm({
+      title: t('pages.chainProxy.nodes.bulkDeleteTitle', { count: selected.length }),
+      okButtonProps: { danger: true },
+      onOk: () => runBulk('delete'),
+    });
   };
 
   const columns: ColumnsType<ChainNode> = [
@@ -139,6 +178,7 @@ export default function NodesTab() {
 
   return (
     <Card size="small" title={t('pages.chainProxy.nodes.title')}>
+      {modalContextHolder}
       <Space style={{ marginBottom: 12 }} wrap>
         <Select
           allowClear
@@ -168,8 +208,38 @@ export default function NodesTab() {
           }))}
         />
       </Space>
+      {selected.length > 0 ? (
+        <Space style={{ marginBottom: 12, width: '100%' }} wrap>
+          <Tag color="blue">{t('pages.chainProxy.nodes.selected', { count: selected.length })}</Tag>
+          <Button size="small" onClick={() => runBulk('enable')}>
+            {t('pages.chainProxy.nodes.bulkEnable')}
+          </Button>
+          <Button size="small" onClick={() => runBulk('disable')}>
+            {t('pages.chainProxy.nodes.bulkDisable')}
+          </Button>
+          <Button size="small" onClick={() => runBulk('rebind')}>
+            {t('pages.chainProxy.nodes.bulkRebind')}
+          </Button>
+          <Button size="small" onClick={exportSelected}>
+            {t('pages.chainProxy.nodes.bulkExport')}
+          </Button>
+          <Button size="small" danger onClick={confirmBulkDelete}>
+            {t('pages.chainProxy.nodes.bulkDelete')}
+          </Button>
+        </Space>
+      ) : (
+        <Space style={{ marginBottom: 12 }} wrap>
+          <Button size="small" onClick={exportSelected} disabled={!poolId}>
+            {t('pages.chainProxy.nodes.bulkExport')}
+          </Button>
+        </Space>
+      )}
       <Table<ChainNode>
         rowKey="id"
+        rowSelection={{
+          selectedRowKeys: selected,
+          onChange: (keys) => setSelected(keys as number[]),
+        }}
         size="small"
         loading={isLoading}
         columns={columns}

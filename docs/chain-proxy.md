@@ -127,7 +127,19 @@ make dist-stub && go build ./...
 
 新增测试：5 种传输的 stream JSON、REALITY 自动密钥与 shortId、TLS 文件校验、非法组合拒绝、端口跳过/顺延/耗尽、REALITY 池端到端生成（入站端口顺延且 stream 含 privateKey）。
 
-## 9. 下一步（M6）
+## 9. M6 端到端、轮换与批量（已落地）
+
+| 能力 | 说明 |
+|---|---|
+| 真实 Xray e2e | `XRAY_E2E_BINARY=/path/to/xray go test ./internal/chain/inject -run TestChainEndToEnd`：起真实核心 + 两个 VLESS 客户端，活跃节点必须命中 marker SOCKS5（`proxy-A`），被闸门节点不得拿到任何上游响应 |
+| 凭据轮换 | `x-ui encrypt-tokens` 现在同时重加密 node token 与链式代理密码（同一 keyring）；旧 key 删除后 `secret.Open` 仍可解，测试覆盖"删旧 key 后仍能解密" |
+| 批量动作 | `POST /nodes/bulk`：enable/disable/delete/rebind，最多 500 个，**整批只 reconcile 一次** |
+| 链接导出 | `POST /nodes/export`：按选中节点或整池导出，去重后返回链接；前端生成 `chain-links.txt` 下载 |
+| 前端 | 节点表支持多选与批量工具条（启用/停用/换绑/导出/删除） |
+
+**多节点下发（未做，明确延后）**：3X-UI 的 node-sync 契约目前只同步 inbound/client，出站与路由规则无法安全下发；要做需要扩展上游 API 与契约测试，属于独立里程碑（M7），不在当前范围内。
+
+## 10. 下一步（M7）
 
 - `internal/web/service/chain`：池/代理/节点 CRUD、计划引擎、异步 job、探活调度；
 - `internal/web/controller/chain.go` + `endpoints.ts` 注册（契约测试强制）；
@@ -136,7 +148,7 @@ make dist-stub && go build ./...
 - 故障切换与黑洞兜底 job；
 - 多节点（runtime）下发。
 
-## 10. 环境变量
+## 11. 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|

@@ -428,6 +428,198 @@ func (fakeLinks) LinksForClient(host string, _ *model.Inbound, email string) []s
 
 func (fakeLinks) LinksForInbounds(string, []*model.Inbound) []string { return nil }
 
+func TestRekeyCredentialsAfterKeyRotation(t *testing.T) {
+	svc, _ := newTestService(t)
+	k1 := &nodetoken.Keyring{ActiveID: "k1", Keys: map[string][32]byte{"k1": {1}}}
+	c1, err := nodetoken.NewCodec(nodetoken.ModeRequired, k1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodetoken.Init(c1)
+	t.Cleanup(func() {
+		off, _ := nodetoken.NewCodec(nodetoken.ModeOff, nil)
+		nodetoken.Init(off)
+	})
+
+	pool, err := svc.CreatePool(testPoolInput(t, "rekey"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ImportProxies(context.Background(), pool.Id,
+		"socks5://u:pw@1.1.1.1:1080", ImportOptions{}); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+
+	// Rotate: k2 becomes active, k1 is still readable for the transition.
+	c2, err := nodetoken.NewCodec(nodetoken.ModeRequired, &nodetoken.Keyring{
+		ActiveID: "k2", Keys: map[string][32]byte{"k1": {1}, "k2": {2}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodetoken.Init(c2)
+	changed, skipped, err := svc.RekeyCredentials()
+	if err != nil {
+		t.Fatalf("RekeyCredentials: %v", err)
+	}
+	if changed != 1 || skipped != 0 {
+		t.Fatalf("changed=%d skipped=%d, want 1/0", changed, skipped)
+	}
+
+	// Drop k1: the rotated row must still decrypt.
+	c3, err := nodetoken.NewCodec(nodetoken.ModeRequired, &nodetoken.Keyring{
+		ActiveID: "k2", Keys: map[string][32]byte{"k2": {2}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodetoken.Init(c3)
+	var p model.ChainProxy
+	if err := database.GetDB().First(&p).Error; err != nil {
+		t.Fatal(err)
+	}
+	plain, err := secret.Open(p.Id, p.PasswordEnc)
+	if err != nil || plain != "pw" {
+		t.Fatalf("password after rotation = %q, %v", plain, err)
+	}
+}
+
+func TestBulkNodesDisableThenEnableSingleReconcile(t *testing.T) {
+	svc, rec := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "bulk"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedProxies(t, pool.Id, 2, "healthy")
+	if _, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	base := rec.calls
+
+	var ids []int
+	database.GetDB().Model(&model.ChainNode{}).Pluck("id", &ids)
+	if len(ids) != 2 {
+		t.Fatalf("nodes = %d", len(ids))
+	}
+	affected, err := svc.BulkNodes(ids, NodeDisable)
+	if err != nil {
+		t.Fatalf("disable: %v", err)
+	}
+	if affected != 2 {
+		t.Fatalf("affected = %d, want 2", affected)
+	}
+	if rec.calls != base+1 {
+		t.Fatalf("reconcile calls = %d, want %d (one per batch)", rec.calls, base+1)
+	}
+	var disabled int64
+	database.GetDB().Model(&model.ChainNode{}).Where("status = ?", "disabled").Count(&disabled)
+	if disabled != 2 {
+		t.Fatalf("disabled nodes = %d", disabled)
+	}
+
+	affected, err = svc.BulkNodes(ids, NodeEnable)
+	if err != nil {
+		t.Fatalf("enable: %v", err)
+	}
+	if affected != 2 {
+		t.Fatalf("affected = %d, want 2", affected)
+	}
+	var active int64
+	database.GetDB().Model(&model.ChainNode{}).Where("status = ? AND client_enabled = ?", "active", true).Count(&active)
+	if active != 2 {
+		t.Fatalf("active nodes = %d", active)
+	}
+}
+
+func TestBulkNodesDeleteRemovesClientAndHops(t *testing.T) {
+	svc, rec := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "bulkdel"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedProxies(t, pool.Id, 2, "healthy")
+	if _, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	var nodes []model.ChainNode
+	database.GetDB().Order("id").Find(&nodes)
+	base := rec.calls
+
+	if _, err := svc.BulkNodes([]int{nodes[0].Id}, NodeDelete); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	var nodeCount, hopCount, clientCount int64
+	database.GetDB().Model(&model.ChainNode{}).Count(&nodeCount)
+	database.GetDB().Model(&model.ChainNodeHop{}).Count(&hopCount)
+	database.GetDB().Model(&model.ClientRecord{}).Where("email = ?", nodes[0].Email).Count(&clientCount)
+	if nodeCount != 1 || hopCount != 1 || clientCount != 0 {
+		t.Fatalf("after delete: nodes=%d hops=%d clients=%d", nodeCount, hopCount, clientCount)
+	}
+	if rec.calls != base+1 {
+		t.Fatalf("reconcile calls = %d, want %d", rec.calls, base+1)
+	}
+}
+
+func TestBulkNodesRebindSwitchesProxyOnce(t *testing.T) {
+	svc, rec := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "bulkrebind"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := seedProxies(t, pool.Id, 1, "unhealthy")[0]
+	spare := seedProxies(t, pool.Id, 1, "healthy")[0]
+	node := seedChainNode(t, pool.Id, dead.Id, "active")
+	base := rec.calls
+
+	affected, err := svc.BulkNodes([]int{node.Id}, NodeRebind)
+	if err != nil {
+		t.Fatalf("rebind: %v", err)
+	}
+	if affected != 1 {
+		t.Fatalf("affected = %d", affected)
+	}
+	var got model.ChainNode
+	if err := database.GetDB().First(&got, node.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.ProxyId == nil || *got.ProxyId != spare.Id {
+		t.Fatalf("proxy = %v, want %d", got.ProxyId, spare.Id)
+	}
+	if got.OutboundTag != node.OutboundTag {
+		t.Fatalf("outbound tag changed")
+	}
+	if rec.calls != base+1 {
+		t.Fatalf("reconcile calls = %d, want %d", rec.calls, base+1)
+	}
+}
+
+func TestExportLinksBySelectionAndPool(t *testing.T) {
+	svc, _ := newTestService(t)
+	service.RegisterSubLinkProvider(fakeLinks{})
+	t.Cleanup(func() { service.RegisterSubLinkProvider(nil) })
+	pool, err := svc.CreatePool(testPoolInput(t, "export"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedProxies(t, pool.Id, 2, "healthy")
+	if _, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	byPool, err := svc.ExportLinks(nil, pool.Id, "panel.example.com")
+	if err != nil || len(byPool) != 2 {
+		t.Fatalf("pool export = %d links, %v", len(byPool), err)
+	}
+	var nodes []model.ChainNode
+	database.GetDB().Order("id").Find(&nodes)
+	byID, err := svc.ExportLinks([]int{nodes[0].Id}, 0, "panel.example.com")
+	if err != nil || len(byID) != 1 {
+		t.Fatalf("id export = %d links, %v", len(byID), err)
+	}
+	if _, err := svc.ExportLinks(nil, 0, "x"); err == nil {
+		t.Fatal("empty selection must be rejected")
+	}
+}
+
 func TestNodeLinksUseSubLinkProvider(t *testing.T) {
 	svc, _ := newTestService(t)
 	service.RegisterSubLinkProvider(fakeLinks{})

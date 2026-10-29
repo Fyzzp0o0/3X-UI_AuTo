@@ -2621,7 +2621,14 @@
         "internet": "互联网",
         "links": "分享链接",
         "noLinks": "暂无分享链接：订阅链接构建器未注册，或客户端没有绑定入站。",
-        "qr": "链接二维码"
+        "qr": "链接二维码",
+        "selected": "已选 {count} 项",
+        "bulkEnable": "启用",
+        "bulkDisable": "停用",
+        "bulkRebind": "换绑",
+        "bulkDelete": "删除",
+        "bulkExport": "导出链接",
+        "bulkDeleteTitle": "删除选中的 {count} 个节点？"
       },
       "jobs": {
         "title": "任务",
@@ -2636,7 +2643,9 @@
         "deleted": "代理池已删除",
         "enabled": "节点已启用",
         "disabled": "节点已停用",
-        "rebound": "节点已换绑到备用代理"
+        "rebound": "节点已换绑到备用代理",
+        "bulkDone": "已更新 {count} 个节点",
+        "exported": "已导出 {count} 条链接"
       },
       "validation": {
         "required": "该字段必填"

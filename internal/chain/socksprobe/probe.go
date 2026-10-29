@@ -80,6 +80,30 @@ func ProbeTCP(ctx context.Context, host string, port int, opt Options) Result {
 	return Result{OK: true, Stage: StageTCP, LatencyMs: time.Since(start).Milliseconds()}
 }
 
+// Dial opens a tunnel to target through the SOCKS5 proxy. The returned
+// connection has no deadline; callers set their own.
+func Dial(ctx context.Context, host string, port int, auth Auth, target string, opt Options) (net.Conn, error) {
+	ctx, cancel := context.WithTimeout(ctx, opt.timeout())
+	defer cancel()
+	conn, err := dialProxy(ctx, host, port, opt)
+	if err != nil {
+		return nil, err
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
+	}
+	if err := handshake(conn, auth); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	if err := connect(conn, target); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	_ = conn.SetDeadline(time.Time{})
+	return conn, nil
+}
+
 // ProbeSOCKS performs the full handshake and CONNECT. target defaults to
 // example.com:443; the reply proves the proxy can reach the public internet.
 func ProbeSOCKS(ctx context.Context, host string, port int, auth Auth, target string, opt Options) Result {

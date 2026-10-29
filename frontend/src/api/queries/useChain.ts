@@ -256,6 +256,32 @@ export function useChainMutations() {
     onSuccess: invalidate,
   });
 
+  const bulkNodesMut = useMutation({
+    mutationFn: async (args: { ids: number[]; action: string }) => {
+      const msg = await HttpUtil.post(
+        '/panel/api/chain/nodes/bulk',
+        { ids: args.ids, action: args.action },
+        JSON_HEADERS,
+      );
+      if (!msg?.success) throw new Error(msg?.msg || 'bulk action failed');
+      return msg.obj as { affected: number } | null;
+    },
+    onSuccess: invalidate,
+  });
+
+  const exportMut = useMutation({
+    mutationFn: async (args: { ids: number[]; poolId: number }) => {
+      const msg = await HttpUtil.post(
+        '/panel/api/chain/nodes/export',
+        { ids: args.ids, poolId: args.poolId },
+        JSON_HEADERS,
+      );
+      if (!msg?.success) throw new Error(msg?.msg || 'export failed');
+      const parsed = msg.obj as { links?: string[] } | null;
+      return parsed?.links ?? [];
+    },
+  });
+
   const rebindMut = useMutation({
     mutationFn: async (id: number) => {
       const msg = await HttpUtil.post(`/panel/api/chain/nodes/${id}/rebind`, {}, JSON_HEADERS);
@@ -334,6 +360,8 @@ export function useChainMutations() {
     probe: probeMut.mutateAsync,
     failover: failoverMut.mutateAsync,
     rebindNode: rebindMut.mutateAsync,
+    bulkNodes: bulkNodesMut.mutateAsync,
+    exportLinks: exportMut.mutateAsync,
     plan: planMut.mutateAsync,
     planning: planMut.isPending,
     apply: applyMut.mutateAsync,

@@ -2621,7 +2621,14 @@
         "internet": "Internet",
         "links": "Share links",
         "noLinks": "No share links yet. The subscription link builder is not registered, or the client has no bound inbound.",
-        "qr": "Link QR code"
+        "qr": "Link QR code",
+        "selected": "{count} selected",
+        "bulkEnable": "Enable",
+        "bulkDisable": "Disable",
+        "bulkRebind": "Rebind",
+        "bulkDelete": "Delete",
+        "bulkExport": "Export links",
+        "bulkDeleteTitle": "Delete {count} selected nodes?"
       },
       "jobs": {
         "title": "Jobs",
@@ -2636,7 +2643,9 @@
         "deleted": "Pool deleted",
         "enabled": "Node enabled",
         "disabled": "Node disabled",
-        "rebound": "Node rebound to a spare proxy"
+        "rebound": "Node rebound to a spare proxy",
+        "bulkDone": "{count} nodes updated",
+        "exported": "{count} links exported"
       },
       "validation": {
         "required": "This field is required"

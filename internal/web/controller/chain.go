@@ -48,6 +48,8 @@ func (a *ChainController) initRouter(g *gin.RouterGroup) {
 	g.POST("/nodes/:id/enable", a.setNodeEnabled(true))
 	g.POST("/nodes/:id/disable", a.setNodeEnabled(false))
 	g.POST("/nodes/:id/rebind", a.rebindNode)
+	g.POST("/nodes/bulk", a.bulkNodes)
+	g.POST("/nodes/export", a.exportNodes)
 
 	g.GET("/jobs", a.listJobs)
 	g.GET("/jobs/:id", a.getJob)
@@ -218,6 +220,44 @@ func (a *ChainController) rebindNode(c *gin.Context) {
 		return
 	}
 	jsonObj(c, nil, a.svc.RebindNode(id))
+}
+
+type chainBulkNodesRequest struct {
+	IDs    []int  `json:"ids"`
+	Action string `json:"action"`
+}
+
+func (a *ChainController) bulkNodes(c *gin.Context) {
+	var req chainBulkNodesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		jsonMsg(c, "", common.NewError("invalid bulk payload:", err))
+		return
+	}
+	action := chainsvc.BulkNodeAction(req.Action)
+	switch action {
+	case chainsvc.NodeEnable, chainsvc.NodeDisable, chainsvc.NodeDelete, chainsvc.NodeRebind:
+	default:
+		jsonMsg(c, "", common.NewError("action must be enable, disable, delete or rebind"))
+		return
+	}
+	affected, err := a.svc.BulkNodes(req.IDs, action)
+	jsonObj(c, gin.H{"affected": affected}, err)
+}
+
+type chainExportRequest struct {
+	IDs    []int `json:"ids"`
+	PoolID int   `json:"poolId"`
+}
+
+func (a *ChainController) exportNodes(c *gin.Context) {
+	var req chainExportRequest
+	_ = c.ShouldBindJSON(&req)
+	links, err := a.svc.ExportLinks(req.IDs, req.PoolID, resolveHost(c))
+	if err != nil {
+		jsonObj(c, nil, err)
+		return
+	}
+	jsonObj(c, gin.H{"count": len(links), "links": links}, nil)
 }
 
 func (a *ChainController) listNodes(c *gin.Context) {

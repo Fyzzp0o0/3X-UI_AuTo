@@ -36,6 +36,56 @@ func TestOpenPassesLegacyPlaintext(t *testing.T) {
 	}
 }
 
+func TestRekeyMovesCiphertextToActiveKey(t *testing.T) {
+	k1 := &nodetoken.Keyring{ActiveID: "k1", Keys: map[string][32]byte{"k1": {1}}}
+	c1, err := nodetoken.NewCodec(nodetoken.ModeRequired, k1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodetoken.Init(c1)
+	sealed, err := Seal(5, "pw")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	k2 := &nodetoken.Keyring{ActiveID: "k2", Keys: map[string][32]byte{"k1": {1}, "k2": {2}}}
+	c2, err := nodetoken.NewCodec(nodetoken.ModeRequired, k2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodetoken.Init(c2)
+	rotated, changed, err := Rekey(5, sealed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !changed || rotated == sealed {
+		t.Fatalf("rekey did not rotate: changed=%v same=%v", changed, rotated == sealed)
+	}
+	if _, again, err := Rekey(5, rotated); err != nil || again {
+		t.Fatalf("second rekey = changed %v, err %v", again, err)
+	}
+
+	// The old key is dropped: only the rotated ciphertext may still decrypt.
+	c3, err := nodetoken.NewCodec(nodetoken.ModeRequired, &nodetoken.Keyring{
+		ActiveID: "k2", Keys: map[string][32]byte{"k2": {2}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nodetoken.Init(c3)
+	t.Cleanup(func() {
+		off, _ := nodetoken.NewCodec(nodetoken.ModeOff, nil)
+		nodetoken.Init(off)
+	})
+	if _, err := Open(5, sealed); err == nil {
+		t.Fatal("old ciphertext decrypted after the old key was dropped")
+	}
+	plain, err := Open(5, rotated)
+	if err != nil || plain != "pw" {
+		t.Fatalf("rotated ciphertext = %q, %v", plain, err)
+	}
+}
+
 func TestSealBindsCiphertextToRow(t *testing.T) {
 	ring := &nodetoken.Keyring{ActiveID: "k1", Keys: map[string][32]byte{"k1": {0x01}}}
 	codec, err := nodetoken.NewCodec(nodetoken.ModeRequired, ring)

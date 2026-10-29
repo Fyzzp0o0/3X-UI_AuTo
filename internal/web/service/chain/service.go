@@ -581,6 +581,39 @@ func (s *Service) GetNode(id int) (*model.ChainNode, []model.ChainNodeHop, error
 	return &n, hops, nil
 }
 
+// RekeyCredentials re-encrypts every stored proxy password under the active
+// keyring entry. Run it after rotating the shared node-token key so dropping
+// the old key cannot strand chain credentials.
+func (s *Service) RekeyCredentials() (changed, skipped int, err error) {
+	db := database.GetDB()
+	var rows []model.ChainProxy
+	if err := db.Select("id", "password_enc").Find(&rows).Error; err != nil {
+		return 0, 0, err
+	}
+	err = db.Transaction(func(tx *gorm.DB) error {
+		for _, p := range rows {
+			sealed, did, rerr := secret.Rekey(p.Id, p.PasswordEnc)
+			if rerr != nil {
+				return fmt.Errorf("proxy %d: %w", p.Id, rerr)
+			}
+			if !did {
+				skipped++
+				continue
+			}
+			if uerr := tx.Model(&model.ChainProxy{}).Where("id = ?", p.Id).
+				Update("password_enc", sealed).Error; uerr != nil {
+				return uerr
+			}
+			changed++
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+	return changed, skipped, nil
+}
+
 // NodeLinks renders the node client's share links (VLESS/Clash-ready URIs).
 // A missing sub-link provider is not an error: the detail view still renders.
 func (s *Service) NodeLinks(nodeID int, host string) []string {

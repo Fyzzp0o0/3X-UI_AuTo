@@ -16324,6 +16324,116 @@
         }
       }
     },
+    "/panel/api/chain/nodes/bulk": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Apply one action (enable, disable, delete, rebind) to up to 500 nodes with a single reconcile.",
+        "operationId": "post_panel_api_chain_nodes_bulk",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Node ids."
+                  },
+                  "action": {
+                    "type": "string",
+                    "description": "enable, disable, delete or rebind."
+                  }
+                },
+                "required": [
+                  "ids",
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/nodes/export": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Return deduplicated share links for the selected nodes, or for one pool when ids is empty.",
+        "operationId": "post_panel_api_chain_nodes_export",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Node ids."
+                  },
+                  "poolId": {
+                    "type": "integer",
+                    "description": "Export every node in this pool."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/chain/jobs": {
       "get": {
         "tags": [

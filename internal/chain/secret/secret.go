@@ -30,6 +30,30 @@ func Seal(id int, plain string) (string, error) {
 	return nodetoken.EncryptBound(bound(id), plain)
 }
 
+// Rekey re-encrypts a stored password under the active key. changed is false
+// when the row already uses it (or is empty); legacy plaintext is migrated.
+func Rekey(id int, stored string) (string, bool, error) {
+	if stored == "" {
+		return stored, false, nil
+	}
+	codec := nodetoken.Active()
+	if !codec.Enabled() {
+		return "", false, ErrEncryptionRequired
+	}
+	if codec.EncryptedWithActive(stored) {
+		return stored, false, nil
+	}
+	plain, err := codec.DecryptBound(bound(id), stored)
+	if err != nil {
+		return "", false, err
+	}
+	sealed, err := codec.EncryptBound(bound(id), plain)
+	if err != nil {
+		return "", false, err
+	}
+	return sealed, true, nil
+}
+
 // Open decrypts a stored password, passing legacy plaintext through unchanged.
 func Open(id int, stored string) (string, error) {
 	if stored == "" {

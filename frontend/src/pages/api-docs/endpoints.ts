@@ -2958,6 +2958,37 @@ export const sections: readonly Section[] = [
         params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Node id.' }],
       },
       {
+        method: 'POST',
+        path: '/panel/api/chain/nodes/bulk',
+        summary:
+          'Apply one action (enable, disable, delete, rebind) to up to 500 nodes with a single reconcile.',
+        params: [
+          { name: 'ids', in: 'body (json)', type: 'integer[]', desc: 'Node ids.' },
+          {
+            name: 'action',
+            in: 'body (json)',
+            type: 'string',
+            desc: 'enable, disable, delete or rebind.',
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/nodes/export',
+        summary:
+          'Return deduplicated share links for the selected nodes, or for one pool when ids is empty.',
+        params: [
+          { name: 'ids', in: 'body (json)', type: 'integer[]', desc: 'Node ids.', optional: true },
+          {
+            name: 'poolId',
+            in: 'body (json)',
+            type: 'integer',
+            desc: 'Export every node in this pool.',
+            optional: true,
+          },
+        ],
+      },
+      {
         method: 'GET',
         path: '/panel/api/chain/jobs',
         summary: 'List recent jobs, optionally scoped to a pool.',

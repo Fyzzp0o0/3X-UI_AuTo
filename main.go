@@ -28,6 +28,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/global"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
+	chainsvc "github.com/mhsanaei/3x-ui/v3/internal/web/service/chain"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/tgbot"
 
@@ -364,6 +365,12 @@ func encryptNodeTokens() {
 		os.Exit(1)
 	}
 	fmt.Printf("node-token migration complete: %d re-encrypted, %d already current/skipped\n", changed, skipped)
+	chainChanged, chainSkipped, err := chainsvc.NewService().RekeyCredentials()
+	if err != nil {
+		fmt.Println("chain credential migration failed:", err)
+		os.Exit(1)
+	}
+	fmt.Printf("chain credential migration complete: %d re-encrypted, %d already current/skipped\n", chainChanged, chainSkipped)
 }
 
 // updateSetting updates various panel settings including port, credentials, base path, listen IP, and two-factor authentication.
