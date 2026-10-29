@@ -1,0 +1,105 @@
+name: Chain Release
+
+# Builds the two architectures the installer supports and attaches them to a
+# GitHub release. Manual runs can publish to the tag given in the input.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. v3.11.0-chain.1)"
+        required: true
+        default: "v3.11.0-chain.1"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: chain-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  XRAY_VERSION: v26.10.29
+
+jobs:
+  build:
+    name: linux-${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build static binary (musl)
+        run: |
+          case "${{ matrix.arch }}" in
+            amd64) BOOTLIN_ARCH="x86-64" ;;
+            arm64) BOOTLIN_ARCH="aarch64" ;;
+          esac
+          BASE="https://toolchains.bootlin.com/downloads/releases/toolchains/${BOOTLIN_ARCH}/tarballs/"
+          TARBALL=$(curl -fsSL --retry 5 "$BASE" | grep -oE "${BOOTLIN_ARCH}--musl--stable-[^\"]+\\.tar\\.xz" | sort -r | head -n1)
+          [ -n "$TARBALL" ] || { echo "no Bootlin toolchain for ${BOOTLIN_ARCH}"; exit 1; }
+          cd /tmp
+          curl -fL --retry 5 -o "$(basename "$TARBALL")" "${BASE}${TARBALL}"
+          tar -xf "$(basename "$TARBALL")"
+          TOOLCHAIN=$(find . -maxdepth 1 -type d -name "${BOOTLIN_ARCH}--musl--stable-*" | head -n1)
+          export PATH="$(realpath "$TOOLCHAIN")/bin:$PATH"
+          export CC=$(realpath "$(find "$TOOLCHAIN/bin" -name '*-gcc.br_real' -type f -executable | head -n1)")
+          cd "$GITHUB_WORKSPACE"
+          export CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }}
+          go build -buildvcs=true -ldflags "-w -s -linkmode external -extldflags '-static'" -o xui-release .
+          file xui-release
+
+      - name: Package
+        run: |
+          mkdir -p dist/x-ui/bin
+          cp xui-release dist/x-ui/x-ui
+          cp x-ui.service.debian x-ui.service.arch x-ui.service.rhel x-ui.sh dist/x-ui/
+          case "${{ matrix.arch }}" in
+            amd64) XRAY_ASSET="Xray-linux-64.zip" ;;
+            arm64) XRAY_ASSET="Xray-linux-arm64-v8a.zip" ;;
+          esac
+          wget -q --tries=5 "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/${XRAY_ASSET}"
+          unzip -q "$XRAY_ASSET" -d dist/x-ui/bin
+          rm -f dist/x-ui/bin/*.zip dist/x-ui/bin/README.md dist/x-ui/bin/LICENSE
+          tar -C dist -czf "x-ui-linux-${{ matrix.arch }}.tar.gz" x-ui
+          sha256sum "x-ui-linux-${{ matrix.arch }}.tar.gz" > "x-ui-linux-${{ matrix.arch }}.tar.gz.sha256"
+          ls -lh "x-ui-linux-${{ matrix.arch }}.tar.gz"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: x-ui-linux-${{ matrix.arch }}
+          path: |
+            x-ui-linux-${{ matrix.arch }}.tar.gz
+            x-ui-linux-${{ matrix.arch }}.tar.gz.sha256
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: ChainForge ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          files: |
+            x-ui-linux-${{ matrix.arch }}.tar.gz
+            x-ui-linux-${{ matrix.arch }}.tar.gz.sha256
+          generate_release_notes: true
