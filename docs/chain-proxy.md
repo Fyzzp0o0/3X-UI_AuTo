@@ -139,7 +139,21 @@ make dist-stub && go build ./...
 
 **多节点下发（未做，明确延后）**：3X-UI 的 node-sync 契约目前只同步 inbound/client，出站与路由规则无法安全下发；要做需要扩展上游 API 与契约测试，属于独立里程碑（M7），不在当前范围内。
 
-## 10. 最终验证
+## 10. 交付与运维补全（M7）
+
+| 能力 | 说明 |
+|---|---|
+| 安装脚本 | `install-chain.sh`：按架构下载 Release + SHA-256 校验、systemd、生成 0600 环境文件（含加密密钥）、首次安装随机密码、升级保留数据、`--uninstall [--purge]`、`--local` 离线安装 |
+| 发布流程 | `.github/workflows/chain-release.yml`：tag 或手动触发，构建 `linux-amd64/arm64` 静态包（musl + Xray + geo 数据），附 SHA-256 到 Release |
+| README | 面向本 fork 重写：功能、三种安装方式、使用流程、安全模型、API、运维/备份、开发与已知限制 |
+| 单代理运维 | `POST /proxies/:id/probe` 即时探活；`POST /proxies/:id` 编辑地址/端口/账号/密码（密码留空保留、写入即加密、指纹冲突拒绝） |
+| 单节点删除 | `POST /nodes/:id/delete`：禁用并删除客户端、跳、节点，单次 reconcile |
+| 审计 | 导入/生成/失败切换/删除/换绑/导出/代理编辑写入 `chain_audit`；`GET /audit` 分页查询；不含凭据与链接 |
+| 限流 | 导入 20/min、探活 20/min、生成/切换 12/min、导出 20/min（按 IP + 路由令牌桶），429 带 `Retry-After` |
+| 节点流量 | 列表与详情展示 `client_traffics` 的上下行；详情接口返回 `traffic` |
+| 探活策略 UI | 池表单可配超时与并发；后端沿用 `ProbePolicy` |
+
+## 11. 最终验证
 
 ```sh
 go build ./...
@@ -150,7 +164,7 @@ npx vitest run --project unit --project components   # 1919 tests passed
 make chain-e2e XRAY_E2E_BINARY=/path/to/xray    # 真实核心端到端
 ```
 
-## 11. 下一步（M7）
+## 12. 下一步（M8）
 
 - `internal/web/service/chain`：池/代理/节点 CRUD、计划引擎、异步 job、探活调度；
 - `internal/web/controller/chain.go` + `endpoints.ts` 注册（契约测试强制）；
@@ -159,7 +173,7 @@ make chain-e2e XRAY_E2E_BINARY=/path/to/xray    # 真实核心端到端
 - 故障切换与黑洞兜底 job；
 - 多节点（runtime）下发。
 
-## 12. 环境变量
+## 13. 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|

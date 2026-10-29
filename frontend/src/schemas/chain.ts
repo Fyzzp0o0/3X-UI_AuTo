@@ -61,6 +61,8 @@ export const ChainNodeSchema = z.object({
   health: z.string().optional(),
   latencyMs: z.number().optional(),
   exitIp: z.string().optional(),
+  trafficUp: z.number().optional(),
+  trafficDown: z.number().optional(),
 });
 export type ChainNode = z.infer<typeof ChainNodeSchema>;
 
@@ -78,6 +80,7 @@ export const ChainNodeDetailSchema = z.object({
   node: ChainNodeSchema,
   hops: z.array(ChainHopSchema).default([]),
   links: z.array(z.string()).default([]),
+  traffic: z.object({ up: z.number(), down: z.number() }).optional(),
 });
 export type ChainNodeDetail = z.infer<typeof ChainNodeDetailSchema>;
 
@@ -139,6 +142,20 @@ export const ChainListSchema = <T extends z.ZodTypeAny>(item: T) =>
 export const ChainPoolListSchema = z.array(ChainPoolSchema);
 export const ChainJobListSchema = z.array(ChainJobSchema);
 
+export const ChainAuditSchema = z.object({
+  id: z.number(),
+  at: z.number(),
+  actor: z.string().default(''),
+  action: z.string(),
+  objectType: z.string().default(''),
+  objectId: z.number(),
+  ip: z.string().default(''),
+  ua: z.string().default(''),
+  detail: z.string().default(''),
+});
+export type ChainAudit = z.infer<typeof ChainAuditSchema>;
+export const ChainAuditListSchema = z.array(ChainAuditSchema);
+
 export const ChainMetaSchema = z.object({
   enabled: z.boolean(),
   encryption: z.boolean(),
@@ -197,6 +214,8 @@ export const PoolFormSchema = z.object({
   totalGB: z.number().int().min(0),
   group: z.string().max(64).optional(),
   probeUrl: z.string().max(512).optional(),
+  probeTimeoutMs: z.number().int().min(0).max(60000).optional(),
+  probeConcurrency: z.number().int().min(0).max(64).optional(),
   autoFailover: z.boolean().optional(),
   portEnd: z.number().int().min(0).max(65535).optional(),
   security: z.enum(['none', 'tls', 'reality']).optional(),
@@ -213,3 +232,14 @@ export const PoolFormSchema = z.object({
   realityFingerprint: z.string().max(32).optional(),
 });
 export type PoolFormValues = z.infer<typeof PoolFormSchema>;
+
+export const ProxyEditSchema = z.object({
+  host: z.string().min(1).max(255),
+  port: z.number().int().min(1).max(65535),
+  username: z.string().max(128).optional(),
+  password: z.string().max(256).optional(),
+  label: z.string().max(128).optional(),
+  allowPrivate: z.boolean().optional(),
+  enabled: z.boolean().optional(),
+});
+export type ProxyEditValues = z.infer<typeof ProxyEditSchema>;

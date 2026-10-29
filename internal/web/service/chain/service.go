@@ -526,11 +526,13 @@ type NodeQuery struct {
 // ListNodeView is a node joined with its proxy for list rendering.
 type ListNodeView struct {
 	model.ChainNode
-	ProxyHost string `json:"proxyHost"`
-	ProxyPort int    `json:"proxyPort"`
-	Health    string `json:"health"`
-	LatencyMs int    `json:"latencyMs"`
-	ExitIp    string `json:"exitIp"`
+	ProxyHost   string `json:"proxyHost"`
+	ProxyPort   int    `json:"proxyPort"`
+	Health      string `json:"health"`
+	LatencyMs   int    `json:"latencyMs"`
+	ExitIp      string `json:"exitIp"`
+	TrafficUp   int64  `json:"trafficUp"`
+	TrafficDown int64  `json:"trafficDown"`
 }
 
 // ListNodes returns one page of nodes with the fields the matrix renders.
@@ -555,9 +557,10 @@ func (s *Service) ListNodes(q NodeQuery) ([]ListNodeView, int64, error) {
 	if err := db.Order("id").Offset((page - 1) * size).Limit(size).Find(&nodes).Error; err != nil {
 		return nil, 0, err
 	}
+	traffic := trafficByEmail(nodes)
 	views := make([]ListNodeView, 0, len(nodes))
 	for _, n := range nodes {
-		v := ListNodeView{ChainNode: n}
+		v := ListNodeView{ChainNode: n, TrafficUp: traffic[n.Email].Up, TrafficDown: traffic[n.Email].Down}
 		if n.ProxyId != nil {
 			var p model.ChainProxy
 			if err := database.GetDB().First(&p, *n.ProxyId).Error; err == nil {
@@ -567,6 +570,26 @@ func (s *Service) ListNodes(q NodeQuery) ([]ListNodeView, int64, error) {
 		views = append(views, v)
 	}
 	return views, total, nil
+}
+
+// trafficByEmail batches the client_traffics lookup for one page of nodes.
+func trafficByEmail(nodes []model.ChainNode) map[string]xray.ClientTraffic {
+	out := make(map[string]xray.ClientTraffic, len(nodes))
+	emails := make([]string, 0, len(nodes))
+	for _, n := range nodes {
+		emails = append(emails, n.Email)
+	}
+	if len(emails) == 0 {
+		return out
+	}
+	var rows []xray.ClientTraffic
+	if err := database.GetDB().Where("email IN ?", emails).Find(&rows).Error; err != nil {
+		return out
+	}
+	for _, row := range rows {
+		out[row.Email] = row
+	}
+	return out
 }
 
 // GetNode returns one node with its chain hops.

@@ -4,6 +4,7 @@ import { Button, Card, Modal, Select, Space, Table, Tag, Tooltip, Typography } f
 import type { ColumnsType } from 'antd/es/table';
 
 import { getMessage } from '@/utils/messageBus';
+import { SizeFormatter } from '@/utils';
 import { useChainMutations, useChainNodes, useChainPools } from '@/api/queries/useChain';
 import type { ChainNode } from '@/schemas/chain';
 import NodeDrawer from '../nodes/NodeDrawer';
@@ -31,7 +32,7 @@ export default function NodesTab() {
   const [page, setPage] = useState(1);
   const [detailId, setDetailId] = useState<number | null>(null);
   const { data, isLoading } = useChainNodes({ poolId, status, page, size: 50 });
-  const { setNodeEnabled, rebindNode, bulkNodes, exportLinks } = useChainMutations();
+  const { setNodeEnabled, rebindNode, bulkNodes, exportLinks, deleteNode } = useChainMutations();
   const [modal, modalContextHolder] = Modal.useModal();
   const [selected, setSelected] = useState<number[]>([]);
 
@@ -45,6 +46,21 @@ export default function NodesTab() {
     } catch (error) {
       getMessage().error((error as Error).message);
     }
+  };
+
+  const confirmDelete = (node: ChainNode) => {
+    modal.confirm({
+      title: t('pages.chainProxy.nodes.deleteTitle', { name: node.name }),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteNode(node.id);
+          getMessage().success(t('pages.chainProxy.toasts.nodeDeleted'));
+        } catch (error) {
+          getMessage().error((error as Error).message);
+        }
+      },
+    });
   };
 
   const rebind = async (node: ChainNode) => {
@@ -149,6 +165,16 @@ export default function NodesTab() {
       render: (_, node) => <span className="chain-mono">{node.exitIp || '—'}</span>,
     },
     {
+      title: t('pages.chainProxy.nodes.traffic'),
+      width: 160,
+      render: (_, node) => (
+        <span className="chain-mono chain-small">
+          ↑{SizeFormatter.sizeFormat(node.trafficUp)} / ↓
+          {SizeFormatter.sizeFormat(node.trafficDown)}
+        </span>
+      ),
+    },
+    {
       title: t('pages.chainProxy.nodes.inbound'),
       width: 160,
       render: (_, node) => <span className="chain-mono chain-small">{node.inboundTag}</span>,
@@ -160,7 +186,7 @@ export default function NodesTab() {
     },
     {
       title: t('pages.chainProxy.pools.actions'),
-      width: 170,
+      width: 240,
       render: (_, node) => (
         <Space size={4}>
           <Button size="small" onClick={() => toggle(node)}>
@@ -170,6 +196,9 @@ export default function NodesTab() {
           </Button>
           <Button size="small" onClick={() => rebind(node)}>
             {t('pages.chainProxy.nodes.rebind')}
+          </Button>
+          <Button size="small" danger onClick={() => confirmDelete(node)}>
+            {t('pages.chainProxy.nodes.delete')}
           </Button>
         </Space>
       ),

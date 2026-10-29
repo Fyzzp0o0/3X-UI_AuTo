@@ -5,6 +5,7 @@ import { parseMsg } from '@/utils/zodValidate';
 import { keys } from '@/api/queryKeys';
 import {
   ChainImportResultSchema,
+  ChainAuditSchema,
   ChainJobListSchema,
   ChainJobSchema,
   ChainListSchema,
@@ -15,6 +16,7 @@ import {
   ChainPoolListSchema,
   ChainPoolSchema,
   ChainProxySchema,
+  type ChainAudit,
   type ChainImportResult,
   type ChainJob,
   type ChainMeta,
@@ -24,6 +26,7 @@ import {
   type ChainPool,
   type ChainProxy,
   type PoolFormValues,
+  type ProxyEditValues,
 } from '@/schemas/chain';
 
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
@@ -58,7 +61,11 @@ function poolBody(values: PoolFormValues) {
     },
     client: { totalGB: values.totalGB, group: values.group ?? '' },
     chain: { frontTag: values.frontTag ?? '', autoFailover: values.autoFailover ?? false },
-    probe: { url: values.probeUrl ?? '' },
+    probe: {
+      url: values.probeUrl ?? '',
+      timeoutMs: values.probeTimeoutMs ?? 0,
+      concurrency: values.probeConcurrency ?? 0,
+    },
   };
 }
 
@@ -153,6 +160,18 @@ export function useChainNode(nodeId: number | null) {
       const parsed = parseMsg(msg, ChainNodeDetailSchema, 'chain/nodes/id');
       if (!parsed.obj) throw new Error('node missing');
       return parsed.obj;
+    },
+  });
+}
+
+export function useChainAudit(page = 1, size = 50) {
+  return useQuery({
+    queryKey: keys.chain.audit(page, size),
+    queryFn: async () => {
+      const msg = await HttpUtil.get('/panel/api/chain/audit', { page, size }, { silent: true });
+      if (!msg?.success) throw new Error(msg?.msg || 'failed to fetch audit');
+      const parsed = parseMsg(msg, ChainListSchema(ChainAuditSchema), 'chain/audit');
+      return parsed.obj ?? { items: [] as ChainAudit[], total: 0 };
     },
   });
 }
@@ -354,6 +373,43 @@ export function useChainMutations() {
     onSuccess: invalidate,
   });
 
+  const proxyUpdateMut = useMutation({
+    mutationFn: async (args: { id: number; values: ProxyEditValues }) => {
+      const msg = await HttpUtil.post(
+        `/panel/api/chain/proxies/${args.id}`,
+        {
+          host: args.values.host,
+          port: args.values.port,
+          username: args.values.username ?? '',
+          password: args.values.password ? args.values.password : null,
+          label: args.values.label ?? '',
+          allowPrivate: args.values.allowPrivate ?? false,
+          enabled: args.values.enabled ?? true,
+        },
+        JSON_HEADERS,
+      );
+      if (!msg?.success) throw new Error(msg?.msg || 'proxy update failed');
+    },
+    onSuccess: invalidate,
+  });
+
+  const proxyProbeMut = useMutation({
+    mutationFn: async (id: number) => {
+      const msg = await HttpUtil.post(`/panel/api/chain/proxies/${id}/probe`, {}, JSON_HEADERS);
+      if (!msg?.success) throw new Error(msg?.msg || 'probe failed');
+      return msg.obj as { ok: boolean; latencyMs: number; error?: string } | null;
+    },
+    onSuccess: invalidate,
+  });
+
+  const nodeDeleteMut = useMutation({
+    mutationFn: async (id: number) => {
+      const msg = await HttpUtil.post(`/panel/api/chain/nodes/${id}/delete`, {}, JSON_HEADERS);
+      if (!msg?.success) throw new Error(msg?.msg || 'node delete failed');
+    },
+    onSuccess: invalidate,
+  });
+
   const nodeEnableMut = useMutation({
     mutationFn: async (args: { id: number; enable: boolean }) => {
       const msg = await HttpUtil.post(
@@ -385,6 +441,9 @@ export function useChainMutations() {
     apply: applyMut.mutateAsync,
     applying: applyMut.isPending,
     setNodeEnabled: nodeEnableMut.mutateAsync,
+    updateProxy: proxyUpdateMut.mutateAsync,
+    probeProxy: proxyProbeMut.mutateAsync,
+    deleteNode: nodeDeleteMut.mutateAsync,
   };
 }
 

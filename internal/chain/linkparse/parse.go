@@ -99,6 +99,19 @@ func ParseLines(input string, opt Options) []Result {
 	return out
 }
 
+// ValidateProxy checks one already-parsed proxy without touching the network.
+func ValidateProxy(p Proxy, opt Options) error {
+	switch p.Protocol {
+	case ProtoSocks5, ProtoHTTP:
+	default:
+		return perr(ErrUnsupported, "protocol "+p.Protocol)
+	}
+	if _, err := parsePort(strconv.Itoa(p.Port)); err != nil {
+		return err
+	}
+	return validateHost(p.Host, opt)
+}
+
 // Fingerprint identifies a proxy for dedupe. The password is deliberately not
 // part of it: editing a password must not create a second row.
 func Fingerprint(p Proxy) string {

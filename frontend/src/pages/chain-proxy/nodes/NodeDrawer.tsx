@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Descriptions, Drawer, Empty, QRCode, Space, Spin, Tag, Typography } from 'antd';
 
 import { useChainNode } from '@/api/queries/useChain';
+import { SizeFormatter } from '@/utils';
 
 interface Props {
   nodeId: number | null;
@@ -67,6 +68,12 @@ export default function NodeDrawer({ nodeId, onClose }: Props) {
             </Descriptions.Item>
             <Descriptions.Item label={t('pages.chainProxy.nodes.exitIp')}>
               <span className="chain-mono">{node.exitIp || '—'}</span>
+            </Descriptions.Item>
+            <Descriptions.Item label={t('pages.chainProxy.nodes.traffic')}>
+              <span className="chain-mono">
+                ↑{SizeFormatter.sizeFormat(data?.traffic?.up ?? node.trafficUp)} / ↓
+                {SizeFormatter.sizeFormat(data?.traffic?.down ?? node.trafficDown)}
+              </span>
             </Descriptions.Item>
           </Descriptions>
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, ConfigProvider, Layout, Space, Tabs, Tag, Typography, message } from 'antd';
 import {
   ApartmentOutlined,
+  AuditOutlined,
   ClusterOutlined,
   DashboardOutlined,
   ThunderboltOutlined,
@@ -18,9 +19,10 @@ import OverviewTab from './sections/OverviewTab';
 import PoolsTab from './sections/PoolsTab';
 import NodesTab from './sections/NodesTab';
 import JobsTab from './sections/JobsTab';
+import AuditTab from './sections/AuditTab';
 import './ChainProxyPage.css';
 
-type TabKey = 'overview' | 'pools' | 'nodes' | 'jobs';
+type TabKey = 'overview' | 'pools' | 'nodes' | 'jobs' | 'audit';
 
 export default function ChainProxyPage() {
   const { t } = useTranslation();
@@ -80,6 +82,15 @@ export default function ChainProxyPage() {
         </span>
       ),
       children: <JobsTab highlightJobId={jobId} />,
+    },
+    {
+      key: 'audit',
+      label: (
+        <span>
+          <AuditOutlined aria-hidden /> {t('pages.chainProxy.tabs.audit')}
+        </span>
+      ),
+      children: <AuditTab />,
     },
   ];
 

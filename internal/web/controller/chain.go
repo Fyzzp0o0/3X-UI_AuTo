@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -35,22 +36,26 @@ func (a *ChainController) initRouter(g *gin.RouterGroup) {
 	g.POST("/pools/:id", a.updatePool)
 	g.POST("/pools/:id/delete", a.deletePool)
 
-	g.POST("/pools/:id/import", a.importProxies)
+	g.POST("/pools/:id/import", chainLimit("import", 20, 5), a.importProxies)
 	g.GET("/pools/:id/proxies", a.listProxies)
 	g.POST("/pools/:id/proxies/bulk", a.bulkProxies)
-	g.POST("/pools/:id/probe", a.probePool)
+	g.POST("/proxies/:id", a.updateProxy)
+	g.POST("/proxies/:id/probe", chainLimit("proxy-probe", 30, 5), a.probeProxy)
+	g.POST("/pools/:id/probe", chainLimit("probe", 20, 4), a.probePool)
 	g.POST("/pools/:id/plan", a.planPool)
-	g.POST("/pools/:id/apply", a.applyPool)
-	g.POST("/pools/:id/failover", a.failoverPool)
+	g.POST("/pools/:id/apply", chainLimit("apply", 12, 3), a.applyPool)
+	g.POST("/pools/:id/failover", chainLimit("failover", 12, 3), a.failoverPool)
 
 	g.GET("/nodes", a.listNodes)
 	g.GET("/nodes/:id", a.getNode)
 	g.POST("/nodes/:id/enable", a.setNodeEnabled(true))
 	g.POST("/nodes/:id/disable", a.setNodeEnabled(false))
 	g.POST("/nodes/:id/rebind", a.rebindNode)
+	g.POST("/nodes/:id/delete", a.deleteNode)
 	g.POST("/nodes/bulk", a.bulkNodes)
-	g.POST("/nodes/export", a.exportNodes)
+	g.POST("/nodes/export", chainLimit("export", 20, 5), a.exportNodes)
 
+	g.GET("/audit", a.listAudit)
 	g.GET("/jobs", a.listJobs)
 	g.GET("/jobs/:id", a.getJob)
 }
@@ -108,7 +113,11 @@ func (a *ChainController) deletePool(c *gin.Context) {
 	if !ok {
 		return
 	}
-	jsonObj(c, nil, a.svc.DeletePool(id))
+	err := a.svc.DeletePool(id)
+	if err == nil {
+		a.audit(c, "pool.delete", "pool", id, "")
+	}
+	jsonObj(c, nil, err)
 }
 
 type chainImportRequest struct {
@@ -129,6 +138,9 @@ func (a *ChainController) importProxies(c *gin.Context) {
 	}
 	res, err := a.svc.ImportProxies(c.Request.Context(), id, req.Content,
 		chainsvc.ImportOptions{DryRun: req.DryRun, AllowPrivate: req.AllowPrivate})
+	if err == nil && !req.DryRun {
+		a.audit(c, "proxy.import", "pool", id, fmt.Sprintf("created=%d duplicate=%d", res.Created, res.Duplicate))
+	}
 	jsonObj(c, res, err)
 }
 
@@ -180,6 +192,9 @@ func (a *ChainController) probePool(c *gin.Context) {
 		return
 	}
 	job, err := a.svc.StartProbeJob(id, "api")
+	if err == nil {
+		a.audit(c, "pool.probe", "pool", id, fmt.Sprintf("job=%d", job.Id))
+	}
 	jsonObj(c, job, err)
 }
 
@@ -202,6 +217,9 @@ func (a *ChainController) applyPool(c *gin.Context) {
 	var opt chainsvc.ApplyOptions
 	_ = c.ShouldBindJSON(&opt)
 	job, err := a.svc.StartApplyJob(id, opt, "api")
+	if err == nil {
+		a.audit(c, "pool.apply", "pool", id, fmt.Sprintf("job=%d", job.Id))
+	}
 	jsonObj(c, job, err)
 }
 
@@ -211,6 +229,9 @@ func (a *ChainController) failoverPool(c *gin.Context) {
 		return
 	}
 	job, err := a.svc.StartFailoverJob(id, "api")
+	if err == nil {
+		a.audit(c, "pool.failover", "pool", id, fmt.Sprintf("job=%d", job.Id))
+	}
 	jsonObj(c, job, err)
 }
 
@@ -219,7 +240,11 @@ func (a *ChainController) rebindNode(c *gin.Context) {
 	if !ok {
 		return
 	}
-	jsonObj(c, nil, a.svc.RebindNode(id))
+	err := a.svc.RebindNode(id)
+	if err == nil {
+		a.audit(c, "node.rebind", "node", id, "")
+	}
+	jsonObj(c, nil, err)
 }
 
 type chainBulkNodesRequest struct {
@@ -241,6 +266,9 @@ func (a *ChainController) bulkNodes(c *gin.Context) {
 		return
 	}
 	affected, err := a.svc.BulkNodes(req.IDs, action)
+	if err == nil {
+		a.audit(c, "node.bulk."+req.Action, "node", 0, fmt.Sprintf("affected=%d", affected))
+	}
 	jsonObj(c, gin.H{"affected": affected}, err)
 }
 
@@ -257,7 +285,82 @@ func (a *ChainController) exportNodes(c *gin.Context) {
 		jsonObj(c, nil, err)
 		return
 	}
+	a.audit(c, "node.export", "node", 0, fmt.Sprintf("count=%d", len(links)))
 	jsonObj(c, gin.H{"count": len(links), "links": links}, nil)
+}
+
+type chainProxyRequest struct {
+	Host         string  `json:"host"`
+	Port         int     `json:"port"`
+	Username     string  `json:"username"`
+	Password     *string `json:"password"`
+	Label        string  `json:"label"`
+	AllowPrivate bool    `json:"allowPrivate"`
+	Enabled      *bool   `json:"enabled"`
+}
+
+func (a *ChainController) updateProxy(c *gin.Context) {
+	id, ok := chainErrorID(c)
+	if !ok {
+		return
+	}
+	var req chainProxyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		jsonMsg(c, "", common.NewError("invalid proxy payload:", err))
+		return
+	}
+	err := a.svc.UpdateProxy(id, chainsvc.ProxyInput{
+		Host: req.Host, Port: req.Port, Username: req.Username, Password: req.Password,
+		Label: req.Label, AllowPrivate: req.AllowPrivate, Enabled: req.Enabled,
+	})
+	if err == nil {
+		a.audit(c, "proxy.update", "proxy", id, fmt.Sprintf("%s:%d", req.Host, req.Port))
+	}
+	jsonObj(c, nil, err)
+}
+
+func (a *ChainController) probeProxy(c *gin.Context) {
+	id, ok := chainErrorID(c)
+	if !ok {
+		return
+	}
+	res, err := a.svc.ProbeProxy(c.Request.Context(), id)
+	if err == nil {
+		a.audit(c, "proxy.probe", "proxy", id, "")
+	}
+	jsonObj(c, res, err)
+}
+
+func (a *ChainController) deleteNode(c *gin.Context) {
+	id, ok := chainErrorID(c)
+	if !ok {
+		return
+	}
+	err := a.svc.DeleteNode(id)
+	if err == nil {
+		a.audit(c, "node.delete", "node", id, "")
+	}
+	jsonObj(c, nil, err)
+}
+
+func (a *ChainController) listAudit(c *gin.Context) {
+	rows, total, err := a.svc.ListAudit(queryInt(c, "page", 1), queryInt(c, "size", 50))
+	if err != nil {
+		jsonObj(c, nil, err)
+		return
+	}
+	jsonObj(c, gin.H{"items": rows, "total": total}, nil)
+}
+
+// audit records a security-relevant action; failures never fail the request.
+func (a *ChainController) audit(c *gin.Context, action, object string, id int, detail string) {
+	actor := "session"
+	if c.GetBool("api_authed") {
+		actor = "api:" + c.GetString("api_token_scope")
+	}
+	_ = a.svc.Audit(actor, c.ClientIP(), c.Request.UserAgent(), chainsvc.AuditRecord{
+		Action: action, ObjectType: object, ObjectID: id, Detail: detail,
+	})
 }
 
 func (a *ChainController) listNodes(c *gin.Context) {
@@ -282,7 +385,11 @@ func (a *ChainController) getNode(c *gin.Context) {
 		jsonObj(c, nil, err)
 		return
 	}
-	jsonObj(c, gin.H{"node": node, "hops": hops, "links": a.svc.NodeLinks(id, resolveHost(c))}, nil)
+	up, down, _ := a.svc.NodeTraffic(node.Email)
+	jsonObj(c, gin.H{
+		"node": node, "hops": hops, "links": a.svc.NodeLinks(id, resolveHost(c)),
+		"traffic": gin.H{"up": up, "down": down},
+	}, nil)
 }
 
 func (a *ChainController) setNodeEnabled(enable bool) gin.HandlerFunc {

@@ -2510,7 +2510,8 @@
         "overview": "Overview",
         "pools": "Pools",
         "nodes": "Nodes",
-        "jobs": "Jobs"
+        "jobs": "Jobs",
+        "audit": "Audit"
       },
       "badges": {
         "enabled": "Enabled",
@@ -2574,7 +2575,13 @@
         "bulkEnable": "Enable",
         "bulkDisable": "Disable",
         "bulkDelete": "Delete",
-        "bulkDeleteTitle": "Delete {count} selected proxies?"
+        "bulkDeleteTitle": "Delete {count} selected proxies?",
+        "probeTimeout": "Probe timeout (ms)",
+        "probeConcurrency": "Probe concurrency",
+        "probeResult": "Reachable in {latency} ms",
+        "probeFailed": "Probe failed: {error}",
+        "proxyEdit": "Edit proxy",
+        "proxyPasswordKeep": "Password (leave blank to keep)"
       },
       "import": {
         "title": "Import proxies into {name}",
@@ -2633,7 +2640,10 @@
         "bulkRebind": "Rebind",
         "bulkDelete": "Delete",
         "bulkExport": "Export links",
-        "bulkDeleteTitle": "Delete {count} selected nodes?"
+        "bulkDeleteTitle": "Delete {count} selected nodes?",
+        "traffic": "Traffic",
+        "delete": "Delete",
+        "deleteTitle": "Delete node {name}?"
       },
       "jobs": {
         "title": "Jobs",
@@ -2652,10 +2662,22 @@
         "bulkDone": "{count} nodes updated",
         "exported": "{count} links exported",
         "updated": "Pool updated",
-        "proxyBulkDone": "{count} proxies updated"
+        "proxyBulkDone": "{count} proxies updated",
+        "proxyUpdated": "Proxy updated",
+        "nodeDeleted": "Node deleted"
       },
       "validation": {
         "required": "This field is required"
+      },
+      "audit": {
+        "title": "Audit",
+        "hint": "Security-relevant operations (imports, generations, exports, deletes, rebinds). Credentials and links are never stored here.",
+        "time": "Time",
+        "actor": "Actor",
+        "action": "Action",
+        "object": "Object",
+        "ip": "IP",
+        "detail": "Detail"
       }
     }
   },

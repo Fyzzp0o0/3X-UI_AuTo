@@ -2838,6 +2838,87 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'POST',
+        path: '/panel/api/chain/proxies/:id',
+        summary:
+          'Update one proxy. password keeps the stored secret when omitted, clears it when empty, and is sealed when set.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer', desc: 'Proxy id.' },
+          { name: 'host', in: 'body (json)', type: 'string', desc: 'Host or IP.' },
+          { name: 'port', in: 'body (json)', type: 'integer', desc: 'Port.' },
+          {
+            name: 'username',
+            in: 'body (json)',
+            type: 'string',
+            desc: 'SOCKS5 username.',
+            optional: true,
+          },
+          {
+            name: 'password',
+            in: 'body (json)',
+            type: 'string',
+            desc: 'Omitted keeps the stored password; empty clears it.',
+            optional: true,
+          },
+          {
+            name: 'label',
+            in: 'body (json)',
+            type: 'string',
+            desc: 'Display label.',
+            optional: true,
+          },
+          {
+            name: 'allowPrivate',
+            in: 'body (json)',
+            type: 'boolean',
+            desc: 'Allow private/loopback targets.',
+            optional: true,
+          },
+          {
+            name: 'enabled',
+            in: 'body (json)',
+            type: 'boolean',
+            desc: 'Enable or disable the proxy.',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/proxies/:id/probe',
+        summary:
+          'Probe one proxy immediately (L2 handshake, plus L3 HTTP when the pool has a probe URL).',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Proxy id.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/nodes/:id/delete',
+        summary: 'Delete one node, its client and hops, then reconcile.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Node id.' }],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/audit',
+        summary:
+          'Audit trail for imports, generations, exports, deletes and rebinds (no credentials stored).',
+        params: [
+          {
+            name: 'page',
+            in: 'query',
+            type: 'integer',
+            desc: '1-based page. Default 1.',
+            optional: true,
+          },
+          {
+            name: 'size',
+            in: 'query',
+            type: 'integer',
+            desc: 'Page size, max 500. Default 50.',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'POST',
         path: '/panel/api/chain/pools/:id/probe',
         summary: 'Queue a probe job for the pool and return it immediately.',
         params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' }],

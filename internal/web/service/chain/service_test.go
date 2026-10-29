@@ -18,6 +18,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/runtime"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
+	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
 type fakeReconciler struct {
@@ -617,6 +618,162 @@ func TestExportLinksBySelectionAndPool(t *testing.T) {
 	}
 	if _, err := svc.ExportLinks(nil, 0, "x"); err == nil {
 		t.Fatal("empty selection must be rejected")
+	}
+}
+
+func TestUpdateProxyKeepsAndReplacesPassword(t *testing.T) {
+	svc, _ := newTestService(t)
+	useEncryption(t, true)
+	pool, err := svc.CreatePool(testPoolInput(t, "proxyedit"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ImportProxies(context.Background(), pool.Id,
+		"socks5://u:old@1.1.1.1:1080", ImportOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	var p model.ChainProxy
+	if err := database.GetDB().First(&p).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	label := "edited"
+	if err := svc.UpdateProxy(p.Id, ProxyInput{Host: "2.2.2.2", Port: 1081, Username: "u", Label: label}); err != nil {
+		t.Fatalf("UpdateProxy without password: %v", err)
+	}
+	var got model.ChainProxy
+	database.GetDB().First(&got, p.Id)
+	if got.Host != "2.2.2.2" || got.Port != 1081 || got.Label != label {
+		t.Fatalf("proxy after update = %+v", got)
+	}
+	if plain, err := secret.Open(got.Id, got.PasswordEnc); err != nil || plain != "old" {
+		t.Fatalf("stored password changed unexpectedly: %q %v", plain, err)
+	}
+
+	newPass := "new-secret"
+	if err := svc.UpdateProxy(p.Id, ProxyInput{Host: "2.2.2.2", Port: 1081, Username: "u", Password: &newPass}); err != nil {
+		t.Fatalf("UpdateProxy with password: %v", err)
+	}
+	database.GetDB().First(&got, p.Id)
+	if plain, err := secret.Open(got.Id, got.PasswordEnc); err != nil || plain != newPass {
+		t.Fatalf("password after update = %q %v", plain, err)
+	}
+}
+
+func TestUpdateProxyRejectsFingerprintClash(t *testing.T) {
+	svc, _ := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "clash"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.ImportProxies(context.Background(), pool.Id,
+		"1.1.1.1:1080:u1\n2.2.2.2:1081:u2", ImportOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	var rows []model.ChainProxy
+	database.GetDB().Order("id").Find(&rows)
+	err = svc.UpdateProxy(rows[1].Id, ProxyInput{Host: "1.1.1.1", Port: 1080, Username: "u1"})
+	if err == nil {
+		t.Fatal("expected a fingerprint conflict")
+	}
+}
+
+func TestProbeProxyUpdatesHealth(t *testing.T) {
+	svc, _ := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "singleprobe"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := startFakeSocks(t)
+	host, port := fake.addr()
+	if err := database.GetDB().Create(&model.ChainProxy{
+		PoolId: pool.Id, Seq: 1, Protocol: "socks5", Host: host, Port: port,
+		Fingerprint: "single", Enabled: true, Health: "unknown", AllowPrivate: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	var p model.ChainProxy
+	database.GetDB().First(&p)
+	res, err := svc.ProbeProxy(context.Background(), p.Id)
+	if err != nil {
+		t.Fatalf("ProbeProxy: %v", err)
+	}
+	if !res.OK {
+		t.Fatalf("probe result = %+v", res)
+	}
+	var got model.ChainProxy
+	database.GetDB().First(&got, p.Id)
+	if got.Health != "healthy" {
+		t.Fatalf("health = %q", got.Health)
+	}
+}
+
+func TestDeleteNodeRemovesClientAndReconciles(t *testing.T) {
+	svc, rec := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "nodedel"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedProxies(t, pool.Id, 1, "healthy")
+	if _, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	var node model.ChainNode
+	database.GetDB().First(&node)
+	base := rec.calls
+	if err := svc.DeleteNode(node.Id); err != nil {
+		t.Fatalf("DeleteNode: %v", err)
+	}
+	var nodes, hops, clients int64
+	database.GetDB().Model(&model.ChainNode{}).Count(&nodes)
+	database.GetDB().Model(&model.ChainNodeHop{}).Count(&hops)
+	database.GetDB().Model(&model.ClientRecord{}).Where("email = ?", node.Email).Count(&clients)
+	if nodes != 0 || hops != 0 || clients != 0 {
+		t.Fatalf("after delete: nodes=%d hops=%d clients=%d", nodes, hops, clients)
+	}
+	if rec.calls != base+1 {
+		t.Fatalf("reconcile calls = %d, want %d", rec.calls, base+1)
+	}
+}
+
+func TestAuditWriteAndList(t *testing.T) {
+	svc, _ := newTestService(t)
+	if err := svc.Audit("api:admin", "127.0.0.1", "test", AuditRecord{
+		Action: "proxy.import", ObjectType: "pool", ObjectID: 3, Detail: "created=2",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rows, total, err := svc.ListAudit(1, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(rows) != 1 || rows[0].Action != "proxy.import" {
+		t.Fatalf("audit rows = %+v total=%d", rows, total)
+	}
+}
+
+func TestListNodesIncludesTraffic(t *testing.T) {
+	svc, _ := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "traffic"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedProxies(t, pool.Id, 1, "healthy")
+	if _, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	var node model.ChainNode
+	database.GetDB().First(&node)
+	if err := database.GetDB().Model(&xray.ClientTraffic{}).Where("email = ?", node.Email).
+		Updates(map[string]any{"up": 123, "down": 456}).Error; err != nil {
+		t.Fatal(err)
+	}
+	views, _, err := svc.ListNodes(NodeQuery{PoolID: pool.Id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(views) != 1 || views[0].TrafficUp != 123 || views[0].TrafficDown != 456 {
+		t.Fatalf("views = %+v", views)
 	}
 }
 

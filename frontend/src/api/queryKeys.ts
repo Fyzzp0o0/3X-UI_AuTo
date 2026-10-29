@@ -51,6 +51,7 @@ export const keys = {
     node: (id: number) => ['chain', 'node', id] as const,
     jobs: (poolId?: number) => ['chain', 'jobs', poolId ?? 0] as const,
     job: (id: number) => ['chain', 'job', id] as const,
+    audit: (page: number, size: number) => ['chain', 'audit', page, size] as const,
   },
   xray: {
     root: () => ['xray'] as const,

@@ -2510,7 +2510,8 @@
         "overview": "总览",
         "pools": "代理池",
         "nodes": "节点",
-        "jobs": "任务"
+        "jobs": "任务",
+        "audit": "审计"
       },
       "badges": {
         "enabled": "已启用",
@@ -2574,7 +2575,13 @@
         "bulkEnable": "启用",
         "bulkDisable": "停用",
         "bulkDelete": "删除",
-        "bulkDeleteTitle": "删除选中的 {count} 条代理？"
+        "bulkDeleteTitle": "删除选中的 {count} 条代理？",
+        "probeTimeout": "探活超时（毫秒）",
+        "probeConcurrency": "探活并发",
+        "probeResult": "可达，延迟 {latency} ms",
+        "probeFailed": "探活失败：{error}",
+        "proxyEdit": "编辑代理",
+        "proxyPasswordKeep": "密码（留空表示不修改）"
       },
       "import": {
         "title": "导入代理到 {name}",
@@ -2633,7 +2640,10 @@
         "bulkRebind": "换绑",
         "bulkDelete": "删除",
         "bulkExport": "导出链接",
-        "bulkDeleteTitle": "删除选中的 {count} 个节点？"
+        "bulkDeleteTitle": "删除选中的 {count} 个节点？",
+        "traffic": "流量",
+        "delete": "删除",
+        "deleteTitle": "删除节点 {name}？"
       },
       "jobs": {
         "title": "任务",
@@ -2652,10 +2662,22 @@
         "bulkDone": "已更新 {count} 个节点",
         "exported": "已导出 {count} 条链接",
         "updated": "代理池已更新",
-        "proxyBulkDone": "已更新 {count} 条代理"
+        "proxyBulkDone": "已更新 {count} 条代理",
+        "proxyUpdated": "代理已更新",
+        "nodeDeleted": "节点已删除"
       },
       "validation": {
         "required": "该字段必填"
+      },
+      "audit": {
+        "title": "审计",
+        "hint": "记录导入、生成、导出、删除、换绑等敏感操作；不会存储凭据或链接。",
+        "time": "时间",
+        "actor": "操作者",
+        "action": "动作",
+        "object": "对象",
+        "ip": "IP",
+        "detail": "详情"
       }
     }
   },

@@ -15879,6 +15879,223 @@
         }
       }
     },
+    "/panel/api/chain/proxies/{id}": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Update one proxy. password keeps the stored secret when omitted, clears it when empty, and is sealed when set.",
+        "operationId": "post_panel_api_chain_proxies_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Proxy id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "description": "Host or IP."
+                  },
+                  "port": {
+                    "type": "integer",
+                    "description": "Port."
+                  },
+                  "username": {
+                    "type": "string",
+                    "description": "SOCKS5 username."
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Omitted keeps the stored password; empty clears it."
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "Display label."
+                  },
+                  "allowPrivate": {
+                    "type": "boolean",
+                    "description": "Allow private/loopback targets."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Enable or disable the proxy."
+                  }
+                },
+                "required": [
+                  "host",
+                  "port"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/proxies/{id}/probe": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Probe one proxy immediately (L2 handshake, plus L3 HTTP when the pool has a probe URL).",
+        "operationId": "post_panel_api_chain_proxies_id_probe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Proxy id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/nodes/{id}/delete": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Delete one node, its client and hops, then reconcile.",
+        "operationId": "post_panel_api_chain_nodes_id_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Node id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/audit": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Audit trail for imports, generations, exports, deletes and rebinds (no credentials stored).",
+        "operationId": "get_panel_api_chain_audit",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "1-based page. Default 1.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Page size, max 500. Default 50.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/chain/pools/{id}/probe": {
       "post": {
         "tags": [

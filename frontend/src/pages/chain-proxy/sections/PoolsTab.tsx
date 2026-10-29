@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Button,
@@ -37,10 +37,12 @@ import {
   PoolFormSchema,
   PoolInboundTemplateSchema,
   PoolProbePolicySchema,
+  ProxyEditSchema,
   type ChainMeta,
   type ChainPool,
   type ChainProxy,
   type PoolFormValues,
+  type ProxyEditValues,
 } from '@/schemas/chain';
 import ImportDrawer from '../wizard/ImportDrawer';
 import PlanModal from '../wizard/PlanModal';
@@ -138,6 +140,8 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
       group: '',
       frontTag: '',
       probeUrl: '',
+      probeTimeoutMs: 0,
+      probeConcurrency: 0,
       portEnd: 0,
       security: 'none',
       network: 'tcp',
@@ -168,6 +172,8 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
       group: '',
       frontTag: '',
       probeUrl: '',
+      probeTimeoutMs: 0,
+      probeConcurrency: 0,
       portEnd: 0,
       security: 'none',
       network: 'tcp',
@@ -492,6 +498,17 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
             <FormField name="probeUrl" label={t('pages.chainProxy.pools.probeUrl')}>
               <Input placeholder="https://www.cloudflare.com/cdn-cgi/trace" />
             </FormField>
+            <Space size={12} style={{ width: '100%' }} align="start">
+              <FormField name="probeTimeoutMs" label={t('pages.chainProxy.pools.probeTimeout')}>
+                <InputNumber min={0} max={60000} />
+              </FormField>
+              <FormField
+                name="probeConcurrency"
+                label={t('pages.chainProxy.pools.probeConcurrency')}
+              >
+                <InputNumber min={0} max={64} />
+              </FormField>
+            </Space>
             <FormField
               name="autoFailover"
               label={t('pages.chainProxy.pools.autoFailover')}
@@ -528,9 +545,53 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
 function ProxyDrawer({ pool, onClose }: { pool: ChainPool; onClose: () => void }) {
   const { t } = useTranslation();
   const { data, isLoading } = useChainProxies(pool.id);
-  const { bulkProxies } = useChainMutations();
+  const { bulkProxies, probeProxy, updateProxy } = useChainMutations();
   const [modal, modalContextHolder] = Modal.useModal();
   const [selected, setSelected] = useState<number[]>([]);
+  const [editing, setEditing] = useState<ChainProxy | null>(null);
+  const methods = useForm<ProxyEditValues>({ defaultValues: { host: '', port: 1080 } });
+
+  const onProbe = async (row: ChainProxy) => {
+    try {
+      const res = await probeProxy(row.id);
+      if (res?.ok) {
+        getMessage().success(
+          t('pages.chainProxy.pools.probeResult', { latency: res.latencyMs ?? 0 }),
+        );
+      } else {
+        getMessage().error(
+          t('pages.chainProxy.pools.probeFailed', { error: res?.error ?? 'unknown' }),
+        );
+      }
+    } catch (error) {
+      getMessage().error((error as Error).message);
+    }
+  };
+
+  const openEdit = (row: ChainProxy) => {
+    methods.reset({
+      host: row.host,
+      port: row.port,
+      username: row.username,
+      password: '',
+      label: row.label,
+      allowPrivate: row.allowPrivate,
+      enabled: row.enabled,
+    });
+    setEditing(row);
+  };
+
+  const submitEdit = methods.handleSubmit(async (values) => {
+    if (!editing) return;
+    try {
+      const payload = { ...values, password: values.password ? values.password : undefined };
+      await updateProxy({ id: editing.id, values: payload });
+      getMessage().success(t('pages.chainProxy.toasts.proxyUpdated'));
+      setEditing(null);
+    } catch (error) {
+      getMessage().error((error as Error).message);
+    }
+  });
 
   const runBulk = async (action: string) => {
     try {
@@ -550,34 +611,45 @@ function ProxyDrawer({ pool, onClose }: { pool: ChainPool; onClose: () => void }
       onOk: () => runBulk('delete'),
     });
   };
-  const columns = useMemo<ColumnsType<ChainProxy>>(
-    () => [
-      {
-        title: t('host'),
-        dataIndex: 'host',
-        render: (host: string, row) => (
-          <span className="chain-mono">
-            {host}:{row.port}
-          </span>
-        ),
-      },
-      { title: t('pages.chainProxy.pools.label'), dataIndex: 'label', ellipsis: true },
-      {
-        title: t('status'),
-        dataIndex: 'health',
-        width: 110,
-        render: (health: string) => <Tag color={healthColor(health)}>{health}</Tag>,
-      },
-      {
-        title: t('pages.chainProxy.nodes.latency'),
-        dataIndex: 'latencyMs',
-        width: 90,
-        render: (ms: number) => (ms > 0 ? `${ms} ms` : '—'),
-      },
-      { title: t('pages.chainProxy.nodes.exitIp'), dataIndex: 'exitIp', width: 140 },
-    ],
-    [t],
-  );
+  const columns: ColumnsType<ChainProxy> = [
+    {
+      title: t('host'),
+      dataIndex: 'host',
+      render: (host: string, row) => (
+        <span className="chain-mono">
+          {host}:{row.port}
+        </span>
+      ),
+    },
+    { title: t('pages.chainProxy.pools.label'), dataIndex: 'label', ellipsis: true },
+    {
+      title: t('status'),
+      dataIndex: 'health',
+      width: 110,
+      render: (health: string) => <Tag color={healthColor(health)}>{health}</Tag>,
+    },
+    {
+      title: t('pages.chainProxy.nodes.latency'),
+      dataIndex: 'latencyMs',
+      width: 90,
+      render: (ms: number) => (ms > 0 ? `${ms} ms` : '—'),
+    },
+    { title: t('pages.chainProxy.nodes.exitIp'), dataIndex: 'exitIp', width: 140 },
+    {
+      title: t('pages.chainProxy.pools.actions'),
+      width: 150,
+      render: (_, row) => (
+        <Space size={4}>
+          <Button size="small" onClick={() => onProbe(row)}>
+            {t('pages.chainProxy.pools.probe')}
+          </Button>
+          <Button size="small" onClick={() => openEdit(row)}>
+            {t('pages.chainProxy.pools.edit')}
+          </Button>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <Drawer
@@ -613,6 +685,57 @@ function ProxyDrawer({ pool, onClose }: { pool: ChainPool; onClose: () => void }
         }}
         pagination={{ pageSize: 50, hideOnSinglePage: true }}
       />
+      <Modal
+        open={editing !== null}
+        title={t('pages.chainProxy.pools.proxyEdit')}
+        onCancel={() => setEditing(null)}
+        onOk={submitEdit}
+        destroyOnHidden
+      >
+        <FormProvider {...methods}>
+          <Form layout="vertical" colon={false}>
+            <Space size={12} style={{ width: '100%' }} align="start">
+              <FormField
+                name="host"
+                label={t('host')}
+                rules={{ validate: rhfZodValidate(ProxyEditSchema.shape.host) }}
+              >
+                <Input placeholder="1.2.3.4" />
+              </FormField>
+              <FormField
+                name="port"
+                label={t('pages.chainProxy.pools.basePort')}
+                rules={{ validate: rhfZodValidate(ProxyEditSchema.shape.port) }}
+              >
+                <InputNumber min={1} max={65535} />
+              </FormField>
+            </Space>
+            <FormField name="username" label={t('username')}>
+              <Input />
+            </FormField>
+            <FormField name="password" label={t('pages.chainProxy.pools.proxyPasswordKeep')}>
+              <Input.Password placeholder="••••••" />
+            </FormField>
+            <FormField name="label" label={t('pages.chainProxy.pools.label')}>
+              <Input />
+            </FormField>
+            <FormField
+              name="allowPrivate"
+              label={t('pages.chainProxy.import.allowPrivate')}
+              valueProp="checked"
+            >
+              <Switch aria-label={t('pages.chainProxy.import.allowPrivate')} />
+            </FormField>
+            <FormField
+              name="enabled"
+              label={t('pages.chainProxy.pools.enabled')}
+              valueProp="checked"
+            >
+              <Switch aria-label={t('pages.chainProxy.pools.enabled')} />
+            </FormField>
+          </Form>
+        </FormProvider>
+      </Modal>
     </Drawer>
   );
 }
