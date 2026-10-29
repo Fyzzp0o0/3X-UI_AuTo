@@ -2666,6 +2666,162 @@ export const sections: readonly Section[] = [
   },
 
   {
+    id: 'chain-proxy',
+    title: 'Chain Proxy',
+    description:
+      'Bulk SOCKS5 chaining. A pool owns upstream proxies; each generated node is a client whose routing rule points its email at a dedicated <code>socks</code> outbound. An optional front hop is expressed with <code>streamSettings.sockopt.dialerProxy</code>. Outbounds and rules are injected at config-generation time and are never written into the Xray template.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/chain/meta',
+        summary: 'Module capabilities: enabled flag, credential-encryption state, import limit, modes and supported inbound protocols.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/pools',
+        summary: 'List pools with proxy, node and healthy-proxy counters.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools',
+        summary: 'Create a pool. Templates (inbound/client/chain/probe) are stored as JSON.',
+        params: [
+          { name: 'name', in: 'body (json)', type: 'string', desc: 'Unique pool name, also used to derive the tag namespace.' },
+          { name: 'mode', in: 'body (json)', type: 'string', desc: 'shared, sharded (default) or dedicated.', optional: true },
+          { name: 'shardSize', in: 'body (json)', type: 'integer', desc: 'Clients per shard inbound. Default 40.', optional: true },
+          { name: 'enabled', in: 'body (json)', type: 'boolean', desc: 'Whether generation and probing run.', optional: true },
+          { name: 'inbound', in: 'body (json)', type: 'object', desc: '{protocol, basePort, listen, remark} for the shared inbound.' },
+          { name: 'client', in: 'body (json)', type: 'object', desc: '{totalGB, expiryDays, limitIp, flow, group} applied to every generated client.' },
+          { name: 'chain', in: 'body (json)', type: 'object', desc: '{frontTag, requireHealthy}. frontTag names an existing Xray outbound used as dialerProxy.' },
+          { name: 'probe', in: 'body (json)', type: 'object', desc: '{url, timeoutMs, concurrency}; url empty keeps the L2 SOCKS5 handshake only.' },
+        ],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/pools/:id',
+        summary: 'Load one pool.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools/:id',
+        summary: 'Update a pool. The derived tag namespace never changes.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools/:id/delete',
+        summary: 'Delete a pool with its nodes, hops and proxies. Generated clients are disabled and removed; shared inbounds stay in place.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools/:id/import',
+        summary: 'Parse and optionally persist pasted proxy lines. Dry run returns a preview table with per-line errors.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' },
+          { name: 'content', in: 'body (json)', type: 'string', desc: 'Raw paste, one proxy per line. Up to 5000 lines.', minLength: 1 },
+          { name: 'dryRun', in: 'body (json)', type: 'boolean', desc: 'Preview only; nothing is written.', optional: true },
+          { name: 'allowPrivate', in: 'body (json)', type: 'boolean', desc: 'Allow RFC1918/loopback targets for self-hosted upstreams. Default false.', optional: true },
+        ],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/pools/:id/proxies',
+        summary: 'Paginated proxies. Credentials are never returned.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' },
+          { name: 'page', in: 'query', type: 'integer', desc: '1-based page. Default 1.', optional: true },
+          { name: 'size', in: 'query', type: 'integer', desc: 'Page size, max 500. Default 50.', optional: true },
+          { name: 'status', in: 'query', type: 'string', desc: 'Filter by health: unknown, healthy, degraded, unhealthy, disabled.', optional: true },
+          { name: 'keyword', in: 'query', type: 'string', desc: 'Case-insensitive host or label match.', optional: true },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools/:id/proxies/bulk',
+        summary: 'Enable, disable or delete selected proxies. Deleting a proxy still bound to a node is refused.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' },
+          { name: 'ids', in: 'body (json)', type: 'integer[]', desc: 'Proxy ids.' },
+          { name: 'action', in: 'body (json)', type: 'string', desc: 'enable, disable or delete.' },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools/:id/probe',
+        summary: 'Queue a probe job for the pool and return it immediately.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools/:id/plan',
+        summary: 'Dry-run generation: counts, shard inbounds, and conflicts such as port collisions or a missing frontTag.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' },
+          { name: 'maxNodes', in: 'body (json)', type: 'integer', desc: 'Cap one run.', optional: true },
+          { name: 'requireHealthy', in: 'body (json)', type: 'boolean', desc: 'Only generate proxies whose last probe succeeded.', optional: true },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/pools/:id/apply',
+        summary: 'Queue a generation job. Inbounds, disabled clients and gated nodes are written first; activation and the routing flip happen in a second reconcile.',
+        params: [
+          { name: 'id', in: 'path', type: 'integer', desc: 'Pool id.' },
+          { name: 'maxNodes', in: 'body (json)', type: 'integer', desc: 'Cap one run.', optional: true },
+          { name: 'requireHealthy', in: 'body (json)', type: 'boolean', desc: 'Only generate proxies whose last probe succeeded.', optional: true },
+        ],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/nodes',
+        summary: 'Paginated nodes joined with proxy host, health, latency and exit IP.',
+        params: [
+          { name: 'page', in: 'query', type: 'integer', desc: '1-based page. Default 1.', optional: true },
+          { name: 'size', in: 'query', type: 'integer', desc: 'Page size, max 500. Default 50.', optional: true },
+          { name: 'poolId', in: 'query', type: 'integer', desc: 'Filter by pool.', optional: true },
+          { name: 'status', in: 'query', type: 'string', desc: 'provisioning, active, degraded, failed or disabled.', optional: true },
+          { name: 'keyword', in: 'query', type: 'string', desc: 'Node name or email match.', optional: true },
+        ],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/nodes/:id',
+        summary: 'Load one node with its ordered chain hops.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Node id.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/nodes/:id/enable',
+        summary: 'Enable a node and its client, then reconcile.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Node id.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/chain/nodes/:id/disable',
+        summary: 'Disable a node and its client. The gate rule stays, so traffic never falls back to the default outbound.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Node id.' }],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/jobs',
+        summary: 'List recent jobs, optionally scoped to a pool.',
+        params: [
+          { name: 'poolId', in: 'query', type: 'integer', desc: 'Filter by pool.', optional: true },
+          { name: 'limit', in: 'query', type: 'integer', desc: 'Max rows, default 50.', optional: true },
+        ],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/chain/jobs/:id',
+        summary: 'Job status, progress counters, message and redacted detail.',
+        params: [{ name: 'id', in: 'path', type: 'integer', desc: 'Job id.' }],
+      },
+    ],
+  },
+
+  {
     id: 'sub-balancers',
     title: 'Subscription Balancers',
     description:

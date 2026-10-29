@@ -5059,6 +5059,10 @@
       "description": "Xray configuration template, outbound management, Warp/Nord/PIA integration, and config testing. All endpoints under /panel/api/xray."
     },
     {
+      "name": "Chain Proxy",
+      "description": "Bulk SOCKS5 chaining. A pool owns upstream proxies; each generated node is a client whose routing rule points its email at a dedicated <code>socks</code> outbound. An optional front hop is expressed with <code>streamSettings.sockopt.dialerProxy</code>. Outbounds and rules are injected at config-generation time and are never written into the Xray template."
+    },
+    {
       "name": "Subscription Balancers",
       "description": "Client-side balancers for the JSON subscription: each enabled balancer is emitted as one extra config document whose members are the proxy outbounds of the selected inbounds (routing.balancers + burstObservatory). Managed in Settings → Sub Balancers."
     },
@@ -15378,6 +15382,934 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/meta": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Module capabilities: enabled flag, credential-encryption state, import limit, modes and supported inbound protocols.",
+        "operationId": "get_panel_api_chain_meta",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "List pools with proxy, node and healthy-proxy counters.",
+        "operationId": "get_panel_api_chain_pools",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Create a pool. Templates (inbound/client/chain/probe) are stored as JSON.",
+        "operationId": "post_panel_api_chain_pools",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Unique pool name, also used to derive the tag namespace."
+                  },
+                  "mode": {
+                    "type": "string",
+                    "description": "shared, sharded (default) or dedicated."
+                  },
+                  "shardSize": {
+                    "type": "integer",
+                    "description": "Clients per shard inbound. Default 40."
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Whether generation and probing run."
+                  },
+                  "inbound": {
+                    "type": "object",
+                    "description": "{protocol, basePort, listen, remark} for the shared inbound."
+                  },
+                  "client": {
+                    "type": "object",
+                    "description": "{totalGB, expiryDays, limitIp, flow, group} applied to every generated client."
+                  },
+                  "chain": {
+                    "type": "object",
+                    "description": "{frontTag, requireHealthy}. frontTag names an existing Xray outbound used as dialerProxy."
+                  },
+                  "probe": {
+                    "type": "object",
+                    "description": "{url, timeoutMs, concurrency}; url empty keeps the L2 SOCKS5 handshake only."
+                  }
+                },
+                "required": [
+                  "name",
+                  "inbound",
+                  "client",
+                  "chain",
+                  "probe"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Load one pool.",
+        "operationId": "get_panel_api_chain_pools_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Update a pool. The derived tag namespace never changes.",
+        "operationId": "post_panel_api_chain_pools_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}/delete": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Delete a pool with its nodes, hops and proxies. Generated clients are disabled and removed; shared inbounds stay in place.",
+        "operationId": "post_panel_api_chain_pools_id_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}/import": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Parse and optionally persist pasted proxy lines. Dry run returns a preview table with per-line errors.",
+        "operationId": "post_panel_api_chain_pools_id_import",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Raw paste, one proxy per line. Up to 5000 lines."
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "Preview only; nothing is written."
+                  },
+                  "allowPrivate": {
+                    "type": "boolean",
+                    "description": "Allow RFC1918/loopback targets for self-hosted upstreams. Default false."
+                  }
+                },
+                "required": [
+                  "content"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}/proxies": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Paginated proxies. Credentials are never returned.",
+        "operationId": "get_panel_api_chain_pools_id_proxies",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "1-based page. Default 1.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Page size, max 500. Default 50.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Filter by health: unknown, healthy, degraded, unhealthy, disabled.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "description": "Case-insensitive host or label match.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}/proxies/bulk": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Enable, disable or delete selected proxies. Deleting a proxy still bound to a node is refused.",
+        "operationId": "post_panel_api_chain_pools_id_proxies_bulk",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Proxy ids."
+                  },
+                  "action": {
+                    "type": "string",
+                    "description": "enable, disable or delete."
+                  }
+                },
+                "required": [
+                  "ids",
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}/probe": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Queue a probe job for the pool and return it immediately.",
+        "operationId": "post_panel_api_chain_pools_id_probe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}/plan": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Dry-run generation: counts, shard inbounds, and conflicts such as port collisions or a missing frontTag.",
+        "operationId": "post_panel_api_chain_pools_id_plan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "maxNodes": {
+                    "type": "integer",
+                    "description": "Cap one run."
+                  },
+                  "requireHealthy": {
+                    "type": "boolean",
+                    "description": "Only generate proxies whose last probe succeeded."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/pools/{id}/apply": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Queue a generation job. Inbounds, disabled clients and gated nodes are written first; activation and the routing flip happen in a second reconcile.",
+        "operationId": "post_panel_api_chain_pools_id_apply",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "maxNodes": {
+                    "type": "integer",
+                    "description": "Cap one run."
+                  },
+                  "requireHealthy": {
+                    "type": "boolean",
+                    "description": "Only generate proxies whose last probe succeeded."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/nodes": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Paginated nodes joined with proxy host, health, latency and exit IP.",
+        "operationId": "get_panel_api_chain_nodes",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "1-based page. Default 1.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "description": "Page size, max 500. Default 50.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "poolId",
+            "in": "query",
+            "required": false,
+            "description": "Filter by pool.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "provisioning, active, degraded, failed or disabled.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "description": "Node name or email match.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/nodes/{id}": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Load one node with its ordered chain hops.",
+        "operationId": "get_panel_api_chain_nodes_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Node id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/nodes/{id}/enable": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Enable a node and its client, then reconcile.",
+        "operationId": "post_panel_api_chain_nodes_id_enable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Node id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/nodes/{id}/disable": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Disable a node and its client. The gate rule stays, so traffic never falls back to the default outbound.",
+        "operationId": "post_panel_api_chain_nodes_id_disable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Node id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/jobs": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "List recent jobs, optionally scoped to a pool.",
+        "operationId": "get_panel_api_chain_jobs",
+        "parameters": [
+          {
+            "name": "poolId",
+            "in": "query",
+            "required": false,
+            "description": "Filter by pool.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Max rows, default 50.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/jobs/{id}": {
+      "get": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Job status, progress counters, message and redacted detail.",
+        "operationId": "get_panel_api_chain_jobs_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Job id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response",

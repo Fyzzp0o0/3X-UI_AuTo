@@ -59,7 +59,31 @@ make dist-stub && go build ./...
 
 依赖下载慢时：`GOPROXY=https://goproxy.cn,direct go test ...`。
 
-## 5. 下一步（M1）
+## 5. M1 后端（已落地）
+
+| 层 | 内容 |
+|---|---|
+| 服务层 `internal/web/service/chain` | 池 CRUD、代理导入（DryRun 预览 / 加密落库）、分页列表、批量启停删、探活、Plan/Apply、节点启停、级联删除 |
+| 异步任务 | `chain_jobs` + 后台 goroutine；同一池同时只允许 1 个 job；`GET /jobs/:id` 轮询 |
+| 生成顺序（失败关闭） | 建分片入站 → 建**禁用**客户端 → 写 `provisioning` 节点（规则指向 blocked）→ reconcile #1 → 启用客户端 + 节点改 active → reconcile #2 |
+| 定时探活 | `chain_probe_job`（`@every 2m`），按池并发探活，连续 3 次失败标记 unhealthy |
+| API | `internal/web/controller/chain.go`，18 个端点挂在 `/panel/api/chain/*`，默认仅 `admin` |
+| 文档/契约 | `frontend/src/pages/api-docs/endpoints.ts` 新增 Chain Proxy 分区；`TestRouteRegistryContract` 双向通过 |
+
+**关键不变量**
+
+1. **不泄漏**：客户端在出站与黑洞规则生效前始终是禁用的；启用与规则翻转发生在同一次热更里，且 hot diff 先加用户、后替换路由。
+2. **不串流**：一代理一节点（`proxy_id` 唯一由服务层保证），规则同时带 `inboundTag` 与 `user`（email）。
+3. **不毒化**：Plan 预检端口冲突、frontTag 是否存在、代理凭证是否可解密；任何冲突直接拒绝，不写半成品。
+4. **不重启**：200 节点仍由 `ComputeHotDiff` 判定为可热更（M0 测试守护）。
+
+**新增测试**
+
+- `internal/web/service/chain/service_test.go`：池 CRUD、导入去重、加密拒绝/落库、端口冲突、200 行分片生成（3 节点 2 分片）、健康过滤、探活落库；
+- `internal/web/chain_scope_test.go`：monitor token 访问 chain 路由必须 403；
+- `TestRouteRegistryContract`：18 个新路由必须在 OpenAPI 注册表里。
+
+## 6. 下一步（M3 前端）
 
 - `internal/web/service/chain`：池/代理/节点 CRUD、计划引擎、异步 job、探活调度；
 - `internal/web/controller/chain.go` + `endpoints.ts` 注册（契约测试强制）；
@@ -68,7 +92,7 @@ make dist-stub && go build ./...
 - 故障切换与黑洞兜底 job；
 - 多节点（runtime）下发。
 
-## 6. 环境变量
+## 7. 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|

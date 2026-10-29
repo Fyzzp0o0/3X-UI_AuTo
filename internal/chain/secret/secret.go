@@ -15,6 +15,9 @@ var ErrEncryptionRequired = errors.New("chain: credential encryption is not conf
 
 func bound(id int) []byte { return []byte(fmt.Sprintf("chain/proxy/%d/password", id)) }
 
+// Enabled reports whether new credentials can be sealed at rest.
+func Enabled() bool { return nodetoken.Enabled() }
+
 // Seal encrypts a proxy password. The row id is part of the AAD, so copying a
 // ciphertext to another row makes it undecryptable.
 func Seal(id int, plain string) (string, error) {

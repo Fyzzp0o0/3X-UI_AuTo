@@ -123,6 +123,9 @@ func Merge(outboundRaw, routingRaw json.RawMessage, outbounds, rules []json.RawM
 		existingTags[tag] = struct{}{}
 		ob = append(ob, raw)
 	}
+	if err := validateDialerTargets(ob, outbounds); err != nil {
+		return nil, nil, err
+	}
 	newOutbounds, err := json.Marshal(ob)
 	if err != nil {
 		return nil, nil, err
@@ -220,6 +223,49 @@ func parseOutbounds(raw json.RawMessage) ([]json.RawMessage, map[string]struct{}
 		}
 	}
 	return list, tags, blackholes, nil
+}
+
+// validateDialerTargets keeps a generated hop from referencing a tag that the
+// final outbound list does not contain: the core refuses to start in that case.
+func validateDialerTargets(all []json.RawMessage, generated []json.RawMessage) error {
+	tags := make(map[string]struct{}, len(all))
+	var probes []struct {
+		Tag    string `json:"tag"`
+		Stream struct {
+			Sockopt struct {
+				DialerProxy string `json:"dialerProxy"`
+			} `json:"sockopt"`
+		} `json:"streamSettings"`
+	}
+	for _, raw := range all {
+		var t struct {
+			Tag string `json:"tag"`
+		}
+		if err := json.Unmarshal(raw, &t); err == nil && t.Tag != "" {
+			tags[t.Tag] = struct{}{}
+		}
+	}
+	for _, raw := range generated {
+		var p struct {
+			Tag    string `json:"tag"`
+			Stream struct {
+				Sockopt struct {
+					DialerProxy string `json:"dialerProxy"`
+				} `json:"sockopt"`
+			} `json:"streamSettings"`
+		}
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return err
+		}
+		if p.Stream.Sockopt.DialerProxy == "" {
+			continue
+		}
+		if _, ok := tags[p.Stream.Sockopt.DialerProxy]; !ok {
+			return fmt.Errorf("hop %s: dialerProxy %s not found", p.Tag, p.Stream.Sockopt.DialerProxy)
+		}
+	}
+	_ = probes
+	return nil
 }
 
 func outboundTag(raw json.RawMessage) (string, error) {

@@ -231,6 +231,9 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Subscription balancers — client-side balancers for the JSON sub output
 	NewSubBalancerController(api)
 
+	// Chain-proxy module — pools, bulk import, probes, node generation.
+	NewChainController(api)
+
 	// Extra routes
 	api.POST("/backuptotgbot", a.BackuptoTgbot)
 }
