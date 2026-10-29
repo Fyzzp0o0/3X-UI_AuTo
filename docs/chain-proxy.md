@@ -133,13 +133,24 @@ make dist-stub && go build ./...
 |---|---|
 | 真实 Xray e2e | `XRAY_E2E_BINARY=/path/to/xray go test ./internal/chain/inject -run TestChainEndToEnd`：起真实核心 + 两个 VLESS 客户端，活跃节点必须命中 marker SOCKS5（`proxy-A`），被闸门节点不得拿到任何上游响应 |
 | 凭据轮换 | `x-ui encrypt-tokens` 现在同时重加密 node token 与链式代理密码（同一 keyring）；旧 key 删除后 `secret.Open` 仍可解，测试覆盖"删旧 key 后仍能解密" |
-| 批量动作 | `POST /nodes/bulk`：enable/disable/delete/rebind，最多 500 个，**整批只 reconcile 一次** |
+| 批量动作 | `POST /nodes/bulk`：enable/disable/delete/rebind，最多 500 个，**整批只 reconcile 一次**（路由总数达到 22 个） |
 | 链接导出 | `POST /nodes/export`：按选中节点或整池导出，去重后返回链接；前端生成 `chain-links.txt` 下载 |
-| 前端 | 节点表支持多选与批量工具条（启用/停用/换绑/导出/删除） |
+| 前端 | 节点表多选 + 批量工具条（启用/停用/换绑/导出/删除）；代理列表也多选批量启停删；代理池支持编辑 |
 
 **多节点下发（未做，明确延后）**：3X-UI 的 node-sync 契约目前只同步 inbound/client，出站与路由规则无法安全下发；要做需要扩展上游 API 与契约测试，属于独立里程碑（M7），不在当前范围内。
 
-## 10. 下一步（M7）
+## 10. 最终验证
+
+```sh
+go build ./...
+go test ./...                                   # 全仓通过
+golangci-lint run ./internal/... .              # 0 issues（含 gofumpt/goimports/errorlint）
+cd frontend && npm run build                    # 产出 ChainProxyPage chunk
+npx vitest run --project unit --project components   # 1919 tests passed
+make chain-e2e XRAY_E2E_BINARY=/path/to/xray    # 真实核心端到端
+```
+
+## 11. 下一步（M7）
 
 - `internal/web/service/chain`：池/代理/节点 CRUD、计划引擎、异步 job、探活调度；
 - `internal/web/controller/chain.go` + `endpoints.ts` 注册（契约测试强制）；
@@ -148,7 +159,7 @@ make dist-stub && go build ./...
 - 故障切换与黑洞兜底 job；
 - 多节点（runtime）下发。
 
-## 11. 环境变量
+## 12. 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|

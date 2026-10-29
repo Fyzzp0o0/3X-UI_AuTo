@@ -149,6 +149,42 @@ export const ChainMetaSchema = z.object({
 });
 export type ChainMeta = z.infer<typeof ChainMetaSchema>;
 
+export const PoolInboundTemplateSchema = z.object({
+  basePort: z.number().optional(),
+  portEnd: z.number().optional(),
+  network: z.string().optional(),
+  security: z.string().optional(),
+  transport: z.object({ path: z.string().optional(), host: z.string().optional() }).optional(),
+  tls: z
+    .object({
+      certificateFile: z.string().optional(),
+      keyFile: z.string().optional(),
+      serverName: z.string().optional(),
+    })
+    .optional(),
+  reality: z
+    .object({
+      dest: z.string().optional(),
+      serverNames: z.array(z.string()).optional(),
+      shortIds: z.array(z.string()).optional(),
+      privateKey: z.string().optional(),
+      fingerprint: z.string().optional(),
+    })
+    .optional(),
+});
+
+export const PoolClientTemplateSchema = z.object({
+  totalGB: z.number().optional(),
+  group: z.string().optional(),
+});
+
+export const PoolChainStrategySchema = z.object({
+  frontTag: z.string().optional(),
+  autoFailover: z.boolean().optional(),
+});
+
+export const PoolProbePolicySchema = z.object({ url: z.string().optional() });
+
 export const PoolFormSchema = z.object({
   name: z
     .string()

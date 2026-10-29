@@ -669,10 +669,14 @@ func TestProbePoolUpdatesHealth(t *testing.T) {
 	goodHost, goodPort := good.addr()
 	deadPort := freePort(t)
 	rows := []model.ChainProxy{
-		{PoolId: pool.Id, Seq: 1, Protocol: "socks5", Host: goodHost, Port: goodPort,
-			Fingerprint: "good", Enabled: true, Health: "unknown", AllowPrivate: true},
-		{PoolId: pool.Id, Seq: 2, Protocol: "socks5", Host: goodHost, Port: deadPort,
-			Fingerprint: "dead", Enabled: true, Health: "unknown", AllowPrivate: true},
+		{
+			PoolId: pool.Id, Seq: 1, Protocol: "socks5", Host: goodHost, Port: goodPort,
+			Fingerprint: "good", Enabled: true, Health: "unknown", AllowPrivate: true,
+		},
+		{
+			PoolId: pool.Id, Seq: 2, Protocol: "socks5", Host: goodHost, Port: deadPort,
+			Fingerprint: "dead", Enabled: true, Health: "unknown", AllowPrivate: true,
+		},
 	}
 	if err := database.GetDB().CreateInBatches(&rows, 10).Error; err != nil {
 		t.Fatal(err)
@@ -702,8 +706,10 @@ func seedChainNode(t *testing.T, poolID int, proxyID int, status string) model.C
 	if err := database.GetDB().Create(&node).Error; err != nil {
 		t.Fatalf("seed node: %v", err)
 	}
-	hop := model.ChainNodeHop{NodeId: node.Id, Position: 0, ProxyId: &proxyID,
-		OutboundTag: node.OutboundTag, Kind: "landing"}
+	hop := model.ChainNodeHop{
+		NodeId: node.Id, Position: 0, ProxyId: &proxyID,
+		OutboundTag: node.OutboundTag, Kind: "landing",
+	}
 	if err := database.GetDB().Create(&hop).Error; err != nil {
 		t.Fatalf("seed hop: %v", err)
 	}

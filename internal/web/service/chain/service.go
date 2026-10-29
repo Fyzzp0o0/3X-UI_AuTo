@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"github.com/mhsanaei/3x-ui/v3/internal/chain/linkparse"
 	"github.com/mhsanaei/3x-ui/v3/internal/chain/secret"
 	"github.com/mhsanaei/3x-ui/v3/internal/chain/xraygen"
@@ -16,7 +18,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
-	"gorm.io/gorm"
 )
 
 // Reconciler applies the generated config to the running core and asks the

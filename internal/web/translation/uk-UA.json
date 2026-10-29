@@ -2569,7 +2569,12 @@
         "realityServerNames": "Server names (comma separated)",
         "realityShortIds": "Short IDs (comma separated)",
         "realityPrivateKey": "Private key (blank = generate)",
-        "realityFingerprint": "Fingerprint"
+        "realityFingerprint": "Fingerprint",
+        "edit": "Edit",
+        "bulkEnable": "Enable",
+        "bulkDisable": "Disable",
+        "bulkDelete": "Delete",
+        "bulkDeleteTitle": "Delete {count} selected proxies?"
       },
       "import": {
         "title": "Import proxies into {name}",
@@ -2645,7 +2650,9 @@
         "disabled": "Node disabled",
         "rebound": "Node rebound to a spare proxy",
         "bulkDone": "{count} nodes updated",
-        "exported": "{count} links exported"
+        "exported": "{count} links exported",
+        "updated": "Pool updated",
+        "proxyBulkDone": "{count} proxies updated"
       },
       "validation": {
         "required": "This field is required"

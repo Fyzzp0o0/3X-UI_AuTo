@@ -2569,7 +2569,12 @@
         "realityServerNames": "Server names（逗号分隔）",
         "realityShortIds": "Short IDs（逗号分隔）",
         "realityPrivateKey": "私钥（留空自动生成）",
-        "realityFingerprint": "指纹"
+        "realityFingerprint": "指纹",
+        "edit": "编辑",
+        "bulkEnable": "启用",
+        "bulkDisable": "停用",
+        "bulkDelete": "删除",
+        "bulkDeleteTitle": "删除选中的 {count} 条代理？"
       },
       "import": {
         "title": "导入代理到 {name}",
@@ -2645,7 +2650,9 @@
         "disabled": "节点已停用",
         "rebound": "节点已换绑到备用代理",
         "bulkDone": "已更新 {count} 个节点",
-        "exported": "已导出 {count} 条链接"
+        "exported": "已导出 {count} 条链接",
+        "updated": "代理池已更新",
+        "proxyBulkDone": "已更新 {count} 条代理"
       },
       "validation": {
         "required": "该字段必填"

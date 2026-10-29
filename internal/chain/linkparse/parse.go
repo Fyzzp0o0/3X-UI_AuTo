@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"net/netip"
 	"net/url"
 	"regexp"
@@ -87,7 +88,7 @@ func ParseLines(input string, opt Options) []Result {
 		res := Result{LineNo: i + 1, Line: mask(line, p.Password), Proxy: p}
 		if err != nil {
 			var pe *ParseError
-			if ok := asParseError(err, &pe); ok {
+			if errors.As(err, &pe) {
 				res.Err = pe.Code
 			} else {
 				res.Err = ErrSyntax
@@ -96,14 +97,6 @@ func ParseLines(input string, opt Options) []Result {
 		out = append(out, res)
 	}
 	return out
-}
-
-func asParseError(err error, target **ParseError) bool {
-	pe, ok := err.(*ParseError)
-	if ok {
-		*target = pe
-	}
-	return ok
 }
 
 // Fingerprint identifies a proxy for dedupe. The password is deliberately not

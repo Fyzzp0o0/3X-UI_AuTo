@@ -28,6 +28,40 @@ import {
 
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 
+function poolBody(values: PoolFormValues) {
+  return {
+    name: values.name,
+    remark: values.name,
+    mode: values.mode,
+    shardSize: values.shardSize,
+    enabled: true,
+    inbound: {
+      protocol: 'vless',
+      basePort: values.basePort,
+      portEnd: values.portEnd ?? 0,
+      remark: values.name,
+      network: values.network ?? 'tcp',
+      security: values.security ?? 'none',
+      transport: { path: values.path ?? '', host: values.transportHost ?? '' },
+      tls: {
+        certificateFile: values.tlsCert ?? '',
+        keyFile: values.tlsKey ?? '',
+        serverName: values.tlsServerName ?? '',
+      },
+      reality: {
+        dest: values.realityDest ?? '',
+        serverNames: splitList(values.realityServerNames),
+        shortIds: splitList(values.realityShortIds),
+        privateKey: values.realityPrivateKey ?? '',
+        fingerprint: values.realityFingerprint ?? '',
+      },
+    },
+    client: { totalGB: values.totalGB, group: values.group ?? '' },
+    chain: { frontTag: values.frontTag ?? '', autoFailover: values.autoFailover ?? false },
+    probe: { url: values.probeUrl ?? '' },
+  };
+}
+
 function splitList(value?: string): string[] {
   return (value ?? '')
     .split(',')
@@ -163,40 +197,22 @@ export function useChainMutations() {
 
   const createPoolMut = useMutation({
     mutationFn: async (values: PoolFormValues) => {
-      const body = {
-        name: values.name,
-        remark: values.name,
-        mode: values.mode,
-        shardSize: values.shardSize,
-        enabled: true,
-        inbound: {
-          protocol: 'vless',
-          basePort: values.basePort,
-          portEnd: values.portEnd ?? 0,
-          remark: values.name,
-          network: values.network ?? 'tcp',
-          security: values.security ?? 'none',
-          transport: { path: values.path ?? '', host: values.transportHost ?? '' },
-          tls: {
-            certificateFile: values.tlsCert ?? '',
-            keyFile: values.tlsKey ?? '',
-            serverName: values.tlsServerName ?? '',
-          },
-          reality: {
-            dest: values.realityDest ?? '',
-            serverNames: splitList(values.realityServerNames),
-            shortIds: splitList(values.realityShortIds),
-            privateKey: values.realityPrivateKey ?? '',
-            fingerprint: values.realityFingerprint ?? '',
-          },
-        },
-        client: { totalGB: values.totalGB, group: values.group ?? '' },
-        chain: { frontTag: values.frontTag ?? '', autoFailover: values.autoFailover ?? false },
-        probe: { url: values.probeUrl ?? '' },
-      };
+      const body = poolBody(values);
       const msg = await HttpUtil.post('/panel/api/chain/pools', body, JSON_HEADERS);
       if (!msg?.success) throw new Error(msg?.msg || 'failed to create pool');
       return parseMsg(msg, ChainPoolSchema, 'chain/pools/create');
+    },
+    onSuccess: invalidate,
+  });
+
+  const updatePoolMut = useMutation({
+    mutationFn: async (args: { id: number; values: PoolFormValues }) => {
+      const msg = await HttpUtil.post(
+        `/panel/api/chain/pools/${args.id}`,
+        poolBody(args.values),
+        JSON_HEADERS,
+      );
+      if (!msg?.success) throw new Error(msg?.msg || 'failed to update pool');
     },
     onSuccess: invalidate,
   });
@@ -354,6 +370,8 @@ export function useChainMutations() {
     createPool: createPoolMut.mutateAsync,
     creating: createPoolMut.isPending,
     deletePool: deletePoolMut.mutateAsync,
+    updatePool: updatePoolMut.mutateAsync,
+    updating: updatePoolMut.isPending,
     importProxies: importMut.mutateAsync,
     importing: importMut.isPending,
     bulkProxies: bulkProxiesMut.mutateAsync,

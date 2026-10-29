@@ -27,8 +27,10 @@ func TestParseLinesFormats(t *testing.T) {
 		{"space two", "1.1.1.1 1080", Proxy{ProtoSocks5, "1.1.1.1", 1080, "", "", ""}},
 		{"bracket ipv6 csv", "[2001:db8::2]:1080:u1:p1", Proxy{ProtoSocks5, "2001:db8::2", 1080, "u1", "p1", ""}},
 		{"trailing label", "1.1.1.1:1080:u1:p1 #JP-02", Proxy{ProtoSocks5, "1.1.1.1", 1080, "u1", "p1", "JP-02"}},
-		{"clash map", "- {name: hk1, type: socks5, server: 1.1.1.1, port: 1080, username: u1, password: p1}",
-			Proxy{ProtoSocks5, "1.1.1.1", 1080, "u1", "p1", "hk1"}},
+		{
+			"clash map", "- {name: hk1, type: socks5, server: 1.1.1.1, port: 1080, username: u1, password: p1}",
+			Proxy{ProtoSocks5, "1.1.1.1", 1080, "u1", "p1", "hk1"},
+		},
 		{"domain host", "proxy.example.com:1080:u:p", Proxy{ProtoSocks5, "proxy.example.com", 1080, "u", "p", ""}},
 	}
 

@@ -26,12 +26,17 @@ import {
   SwapOutlined,
 } from '@ant-design/icons';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import type { z } from 'zod';
 
 import { FormField, rhfZodValidate } from '@/components/form/rhf';
 import { getMessage } from '@/utils/messageBus';
 import { useChainMutations, useChainPools, useChainProxies } from '@/api/queries/useChain';
 import {
+  PoolChainStrategySchema,
+  PoolClientTemplateSchema,
   PoolFormSchema,
+  PoolInboundTemplateSchema,
+  PoolProbePolicySchema,
   type ChainMeta,
   type ChainPool,
   type ChainProxy,
@@ -43,6 +48,57 @@ import PlanModal from '../wizard/PlanModal';
 interface Props {
   meta?: ChainMeta;
   onJobStarted: (jobId: number) => void;
+}
+
+function parseTemplate<S extends z.ZodTypeAny>(schema: S, raw: string): z.infer<S> | undefined {
+  try {
+    const parsed = schema.safeParse(JSON.parse(raw || '{}'));
+    return parsed.success ? parsed.data : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function poolToForm(pool: ChainPool): PoolFormValues {
+  const inbound = parseTemplate(PoolInboundTemplateSchema, pool.inboundTemplate);
+  const client = parseTemplate(PoolClientTemplateSchema, pool.clientTemplate);
+  const chain = parseTemplate(PoolChainStrategySchema, pool.chainStrategy);
+  const probe = parseTemplate(PoolProbePolicySchema, pool.probePolicy);
+  const reality = inbound?.reality;
+  const mode = ['shared', 'sharded', 'dedicated'].includes(pool.mode)
+    ? (pool.mode as PoolFormValues['mode'])
+    : 'sharded';
+  return {
+    name: pool.name,
+    mode,
+    shardSize: pool.shardSize,
+    basePort: inbound?.basePort ?? 2083,
+    portEnd: inbound?.portEnd ?? 0,
+    security:
+      inbound?.security === 'tls' || inbound?.security === 'reality' ? inbound.security : 'none',
+    network:
+      inbound?.network === 'ws' ||
+      inbound?.network === 'grpc' ||
+      inbound?.network === 'httpupgrade' ||
+      inbound?.network === 'xhttp'
+        ? inbound.network
+        : 'tcp',
+    path: inbound?.transport?.path ?? '',
+    transportHost: inbound?.transport?.host ?? '',
+    tlsCert: inbound?.tls?.certificateFile ?? '',
+    tlsKey: inbound?.tls?.keyFile ?? '',
+    tlsServerName: inbound?.tls?.serverName ?? '',
+    realityDest: reality?.dest ?? '',
+    realityServerNames: (reality?.serverNames ?? []).join(','),
+    realityShortIds: (reality?.shortIds ?? []).join(','),
+    realityPrivateKey: reality?.privateKey ?? '',
+    realityFingerprint: reality?.fingerprint ?? 'chrome',
+    totalGB: client?.totalGB ?? 0,
+    group: client?.group ?? '',
+    frontTag: chain?.frontTag ?? '',
+    autoFailover: chain?.autoFailover ?? false,
+    probeUrl: probe?.url ?? '',
+  };
 }
 
 function healthColor(health: string): string {
@@ -63,9 +119,11 @@ function healthColor(health: string): string {
 export default function PoolsTab({ meta, onJobStarted }: Props) {
   const { t } = useTranslation();
   const { pools, fetched } = useChainPools();
-  const { createPool, creating, deletePool, probe, failover } = useChainMutations();
+  const { createPool, creating, updatePool, updating, deletePool, probe, failover } =
+    useChainMutations();
   const [modal, modalContextHolder] = Modal.useModal();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<ChainPool | null>(null);
   const [importPool, setImportPool] = useState<ChainPool | null>(null);
   const [planPool, setPlanPool] = useState<ChainPool | null>(null);
   const [proxyPool, setProxyPool] = useState<ChainPool | null>(null);
@@ -100,6 +158,7 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
   const network = useWatch({ control: methods.control, name: 'network' });
 
   const openCreate = () => {
+    setEditing(null);
     methods.reset({
       name: '',
       mode: 'sharded',
@@ -126,10 +185,21 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
     setCreateOpen(true);
   };
 
+  const openEdit = (pool: ChainPool) => {
+    setEditing(pool);
+    methods.reset(poolToForm(pool));
+    setCreateOpen(true);
+  };
+
   const submitCreate = methods.handleSubmit(async (values) => {
     try {
-      await createPool(values);
-      getMessage().success(t('pages.chainProxy.toasts.created'));
+      if (editing) {
+        await updatePool({ id: editing.id, values });
+        getMessage().success(t('pages.chainProxy.toasts.updated'));
+      } else {
+        await createPool(values);
+        getMessage().success(t('pages.chainProxy.toasts.created'));
+      }
       setCreateOpen(false);
     } catch (error) {
       getMessage().error((error as Error).message);
@@ -240,6 +310,9 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
           <Button size="small" onClick={() => setProxyPool(pool)}>
             {t('pages.chainProxy.pools.proxies')}
           </Button>
+          <Button size="small" onClick={() => openEdit(pool)}>
+            {t('pages.chainProxy.pools.edit')}
+          </Button>
           <Button
             size="small"
             icon={<RadarChartOutlined aria-hidden />}
@@ -294,10 +367,10 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
 
       <Modal
         open={createOpen}
-        title={t('pages.chainProxy.pools.add')}
+        title={editing ? t('pages.chainProxy.pools.edit') : t('pages.chainProxy.pools.add')}
         onCancel={() => setCreateOpen(false)}
         onOk={submitCreate}
-        confirmLoading={creating}
+        confirmLoading={creating || updating}
         destroyOnHidden
         width={560}
       >
@@ -455,6 +528,28 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
 function ProxyDrawer({ pool, onClose }: { pool: ChainPool; onClose: () => void }) {
   const { t } = useTranslation();
   const { data, isLoading } = useChainProxies(pool.id);
+  const { bulkProxies } = useChainMutations();
+  const [modal, modalContextHolder] = Modal.useModal();
+  const [selected, setSelected] = useState<number[]>([]);
+
+  const runBulk = async (action: string) => {
+    try {
+      const res = await bulkProxies({ poolId: pool.id, ids: selected, action });
+      getMessage().success(t('pages.chainProxy.toasts.proxyBulkDone', { count: selected.length }));
+      setSelected([]);
+      void res;
+    } catch (error) {
+      getMessage().error((error as Error).message);
+    }
+  };
+
+  const confirmDelete = () => {
+    modal.confirm({
+      title: t('pages.chainProxy.pools.bulkDeleteTitle', { count: selected.length }),
+      okButtonProps: { danger: true },
+      onOk: () => runBulk('delete'),
+    });
+  };
   const columns = useMemo<ColumnsType<ChainProxy>>(
     () => [
       {
@@ -491,12 +586,31 @@ function ProxyDrawer({ pool, onClose }: { pool: ChainPool; onClose: () => void }
       width={780}
       title={`${pool.name} · ${t('pages.chainProxy.pools.proxies')}`}
     >
+      {modalContextHolder}
+      {selected.length > 0 ? (
+        <Space style={{ marginBottom: 12 }} wrap>
+          <Tag color="blue">{t('pages.chainProxy.nodes.selected', { count: selected.length })}</Tag>
+          <Button size="small" onClick={() => runBulk('enable')}>
+            {t('pages.chainProxy.pools.bulkEnable')}
+          </Button>
+          <Button size="small" onClick={() => runBulk('disable')}>
+            {t('pages.chainProxy.pools.bulkDisable')}
+          </Button>
+          <Button size="small" danger onClick={confirmDelete}>
+            {t('pages.chainProxy.pools.bulkDelete')}
+          </Button>
+        </Space>
+      ) : null}
       <Table
         rowKey="id"
         size="small"
         loading={isLoading}
         columns={columns}
         dataSource={data?.items ?? []}
+        rowSelection={{
+          selectedRowKeys: selected,
+          onChange: (keys) => setSelected(keys as number[]),
+        }}
         pagination={{ pageSize: 50, hideOnSinglePage: true }}
       />
     </Drawer>

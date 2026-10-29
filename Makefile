@@ -65,6 +65,11 @@ node-e2e: dist-stub ## Master+node sync end to end with two real panel processes
 	go build -o $(NODE_E2E_BIN) .
 	XUI_NODE_E2E_BINARY=$(NODE_E2E_BIN) go test -count=1 -timeout 20m -v ./internal/nodee2e/
 
+.PHONY: chain-e2e
+chain-e2e: dist-stub ## Chain-proxy end to end against a real Xray binary (XRAY_E2E_BINARY=/path/to/xray)
+	@test -n "$(XRAY_E2E_BINARY)" || (echo "set XRAY_E2E_BINARY=/path/to/xray"; exit 1)
+	XRAY_E2E_BINARY=$(XRAY_E2E_BINARY) go test -count=1 -timeout 5m -run TestChainEndToEnd ./internal/chain/inject/
+
 .PHONY: test-fe
 test-fe: ## Frontend tests (vitest)
 	cd $(FRONTEND) && npm test
