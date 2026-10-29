@@ -52,7 +52,7 @@ func Inject(cfg *xray.Config) error {
 // decrypts its proxy credentials. Callers get plaintext only in memory.
 func LoadNodes(db *gorm.DB) ([]Node, error) {
 	var rows []model.ChainNode
-	if err := db.Where("status IN ?", []string{"active", "degraded", "provisioning"}).
+	if err := db.Where("status IN ?", []string{"active", "degraded", "provisioning", "failed"}).
 		Order("id").Find(&rows).Error; err != nil {
 		return nil, err
 	}

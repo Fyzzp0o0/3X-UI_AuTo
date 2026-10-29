@@ -3,8 +3,10 @@ package chain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,13 +21,27 @@ import (
 )
 
 type fakeReconciler struct {
-	calls int
-	err   error
+	calls     int
+	err       error
+	verifyErr error
 }
 
 func (f *fakeReconciler) Apply() error {
 	f.calls++
 	return f.err
+}
+
+// Verify answers like the core router would: the rule currently in the
+// database decides the outbound. verifyErr simulates a missing rule.
+func (f *fakeReconciler) Verify(_, email string) (string, error) {
+	if f.verifyErr != nil {
+		return "", f.verifyErr
+	}
+	var node model.ChainNode
+	if err := database.GetDB().Select("outbound_tag").Where("email = ?", email).First(&node).Error; err != nil {
+		return "", err
+	}
+	return node.OutboundTag, nil
 }
 
 func newTestService(t *testing.T) (*Service, *fakeReconciler) {
@@ -84,14 +100,18 @@ func testPoolInput(t *testing.T, name string) PoolInput {
 	}
 }
 
+var seedBatch int
+
 func seedProxies(t *testing.T, poolID, n int, health string) []model.ChainProxy {
 	t.Helper()
+	seedBatch++
 	rows := make([]model.ChainProxy, 0, n)
 	for i := 1; i <= n; i++ {
 		rows = append(rows, model.ChainProxy{
-			PoolId: poolID, Seq: i, Protocol: "socks5", Host: "198.51.100.10", Port: 10800 + i,
-			Username: "u", PasswordEnc: "p", Fingerprint: "fp-" + strings.Repeat("x", i),
-			Enabled: true, Health: health,
+			PoolId: poolID, Seq: i, Protocol: "socks5", Host: "198.51.100.10",
+			Port: 10000 + seedBatch*100 + i, Username: "u", PasswordEnc: "p",
+			Fingerprint: "fp-" + strconv.Itoa(seedBatch) + "-" + strconv.Itoa(i),
+			Enabled:     true, Health: health,
 		})
 	}
 	if err := database.GetDB().CreateInBatches(&rows, 100).Error; err != nil {
@@ -316,6 +336,37 @@ func TestApplyCreatesClientsNodesAndConfig(t *testing.T) {
 	}
 }
 
+func TestApplyRollsBackWhenSelfCheckFails(t *testing.T) {
+	svc, rec := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "verify"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedProxies(t, pool.Id, 3, "healthy")
+	rec.verifyErr = errors.New("route mismatch")
+
+	res, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{})
+	if err == nil {
+		t.Fatal("apply must fail when the activation self-check fails")
+	}
+	var partial *PartialError
+	if !errors.As(err, &partial) {
+		t.Fatalf("error = %T %v, want PartialError", err, err)
+	}
+	if res.VerifyFailed != 3 || res.Activated != 0 {
+		t.Fatalf("result = %+v", res)
+	}
+	var failed, active int64
+	database.GetDB().Model(&model.ChainNode{}).Where("status = ?", "failed").Count(&failed)
+	database.GetDB().Model(&model.ChainNode{}).Where("status = ?", "active").Count(&active)
+	if failed != 3 || active != 0 {
+		t.Fatalf("nodes: failed=%d active=%d, want 3/0", failed, active)
+	}
+	if rec.calls != 3 {
+		t.Fatalf("reconciler calls = %d, want 3 (gate, activate, rollback)", rec.calls)
+	}
+}
+
 func TestApplyRequireHealthySkipsUnknown(t *testing.T) {
 	svc, _ := newTestService(t)
 	pool, err := svc.CreatePool(testPoolInput(t, "healthy"))
@@ -362,5 +413,134 @@ func TestProbePoolUpdatesHealth(t *testing.T) {
 	database.GetDB().Model(&model.ChainProxy{}).Where("health <> ?", "healthy").Count(&failed)
 	if healthy != 1 || failed != 1 {
 		t.Fatalf("health rows: healthy=%d failed=%d", healthy, failed)
+	}
+}
+
+func seedChainNode(t *testing.T, poolID int, proxyID int, status string) model.ChainNode {
+	t.Helper()
+	node := model.ChainNode{
+		PoolId: poolID, ProxyId: &proxyID, Name: "p1-n" + strconv.Itoa(proxyID),
+		Email: "p1-n" + strconv.Itoa(proxyID) + "@chain", InboundTag: "in-poc",
+		OutboundTag: "cf:p1:n" + strconv.Itoa(proxyID), Status: status, ClientEnabled: true,
+	}
+	if err := database.GetDB().Create(&node).Error; err != nil {
+		t.Fatalf("seed node: %v", err)
+	}
+	hop := model.ChainNodeHop{NodeId: node.Id, Position: 0, ProxyId: &proxyID,
+		OutboundTag: node.OutboundTag, Kind: "landing"}
+	if err := database.GetDB().Create(&hop).Error; err != nil {
+		t.Fatalf("seed hop: %v", err)
+	}
+	return node
+}
+
+func TestFailoverRebindsToSpareAndKeepsTag(t *testing.T) {
+	svc, rec := newTestService(t)
+	in := testPoolInput(t, "failover")
+	in.Chain.AutoFailover = true
+	pool, err := svc.CreatePool(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := seedProxies(t, pool.Id, 1, "unhealthy")[0]
+	spare := seedProxies(t, pool.Id, 1, "healthy")[0]
+	node := seedChainNode(t, pool.Id, dead.Id, "active")
+
+	res, err := svc.Failover(context.Background(), pool.Id, FailoverOptions{})
+	if err != nil {
+		t.Fatalf("Failover: %v", err)
+	}
+	if res.Rebound != 1 || res.Gated != 0 {
+		t.Fatalf("result = %+v", res)
+	}
+	var got model.ChainNode
+	if err := database.GetDB().First(&got, node.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.ProxyId == nil || *got.ProxyId != spare.Id || got.Status != "active" {
+		t.Fatalf("node after failover = %+v", got)
+	}
+	if got.OutboundTag != node.OutboundTag {
+		t.Fatalf("outbound tag changed: %s -> %s", node.OutboundTag, got.OutboundTag)
+	}
+	var hop model.ChainNodeHop
+	if err := database.GetDB().Where("node_id = ? AND position = 0", node.Id).First(&hop).Error; err != nil {
+		t.Fatal(err)
+	}
+	if hop.ProxyId == nil || *hop.ProxyId != spare.Id {
+		t.Fatalf("hop proxy = %v, want %d", hop.ProxyId, spare.Id)
+	}
+	if rec.calls != 1 {
+		t.Fatalf("reconciler calls = %d, want 1", rec.calls)
+	}
+}
+
+func TestFailoverGatesWhenNoSpare(t *testing.T) {
+	svc, rec := newTestService(t)
+	in := testPoolInput(t, "nospare")
+	in.Chain.AutoFailover = true
+	pool, err := svc.CreatePool(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := seedProxies(t, pool.Id, 1, "unhealthy")[0]
+	node := seedChainNode(t, pool.Id, dead.Id, "active")
+
+	res, err := svc.Failover(context.Background(), pool.Id, FailoverOptions{})
+	if err != nil {
+		t.Fatalf("Failover: %v", err)
+	}
+	if res.Gated != 1 || res.Rebound != 0 {
+		t.Fatalf("result = %+v", res)
+	}
+	var got model.ChainNode
+	if err := database.GetDB().First(&got, node.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "failed" || got.ClientEnabled {
+		t.Fatalf("node after failed failover = %+v", got)
+	}
+	if rec.calls != 1 {
+		t.Fatalf("reconciler calls = %d, want 1", rec.calls)
+	}
+}
+
+func TestFailoverSkipsWhenDisabled(t *testing.T) {
+	svc, _ := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "manual"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.Failover(context.Background(), pool.Id, FailoverOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Skipped {
+		t.Fatalf("result = %+v, want skipped", res)
+	}
+}
+
+func TestRebindNodePicksSpare(t *testing.T) {
+	svc, rec := newTestService(t)
+	pool, err := svc.CreatePool(testPoolInput(t, "rebind"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dead := seedProxies(t, pool.Id, 1, "unhealthy")[0]
+	spare := seedProxies(t, pool.Id, 1, "healthy")[0]
+	node := seedChainNode(t, pool.Id, dead.Id, "active")
+
+	if err := svc.RebindNode(node.Id); err != nil {
+		t.Fatalf("RebindNode: %v", err)
+	}
+	var got model.ChainNode
+	if err := database.GetDB().First(&got, node.Id).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.ProxyId == nil || *got.ProxyId != spare.Id {
+		t.Fatalf("proxy = %v, want %d", got.ProxyId, spare.Id)
+	}
+	if rec.calls != 1 {
+		t.Fatalf("reconciler calls = %d", rec.calls)
 	}
 }

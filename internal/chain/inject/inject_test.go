@@ -65,17 +65,19 @@ func TestBuildSeparatesGateAndActiveNodes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if len(outbounds) != 2 || len(rules) != 2 {
-		t.Fatalf("got %d outbounds / %d rules, want 2/2 (disabled skipped)", len(outbounds), len(rules))
+	if len(outbounds) != 1 || len(rules) != 3 {
+		t.Fatalf("got %d outbounds / %d rules, want 1/3 (inactive nodes keep a gate rule)", len(outbounds), len(rules))
 	}
 	if !strings.Contains(string(rules[0]), `"outboundTag":"cf:p3:n001"`) {
 		t.Fatalf("active node rule = %s", rules[0])
 	}
-	if !strings.Contains(string(rules[1]), `"outboundTag":"blocked"`) {
-		t.Fatalf("provisioning node must be gated to blocked, got %s", rules[1])
-	}
-	if !strings.Contains(string(rules[1]), `"inboundTag"`) {
-		t.Fatalf("gate rule should still match the inbound: %s", rules[1])
+	for i := 1; i < 3; i++ {
+		if !strings.Contains(string(rules[i]), `"outboundTag":"blocked"`) {
+			t.Fatalf("inactive node %d must be gated to blocked, got %s", i, rules[i])
+		}
+		if !strings.Contains(string(rules[i]), `"inboundTag"`) {
+			t.Fatalf("gate rule should still match the inbound: %s", rules[i])
+		}
 	}
 }
 

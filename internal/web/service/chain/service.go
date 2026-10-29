@@ -15,14 +15,16 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
+	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 	"gorm.io/gorm"
 )
 
-// Reconciler applies the generated config to the running core. The default
-// implementation talks to XrayService; tests substitute a fake so the data
-// plane can be exercised without an Xray binary.
+// Reconciler applies the generated config to the running core and asks the
+// core's router which outbound a client would actually reach. Tests substitute
+// a fake so the data plane runs without an Xray binary.
 type Reconciler interface {
 	Apply() error
+	Verify(inboundTag, email string) (matchedOutbound string, err error)
 }
 
 // Service owns chain state. It deliberately uses the existing Inbound/Client
@@ -45,6 +47,19 @@ func NewService() *Service {
 type xrayReconciler struct{ svc *service.XrayService }
 
 func (r xrayReconciler) Apply() error { return r.svc.RestartXray(false) }
+
+func (r xrayReconciler) Verify(inboundTag, email string) (string, error) {
+	res, err := r.svc.TestRoute(xray.RouteTestRequest{
+		InboundTag: inboundTag, Email: email, Domain: "example.com", Port: 443,
+	})
+	if err != nil {
+		return "", err
+	}
+	if !res.Matched {
+		return "", nil
+	}
+	return res.OutboundTag, nil
+}
 
 // PoolInput is the editable shape of a pool. Templates are stored as JSON so
 // M1 can grow fields without a migration.
@@ -83,6 +98,7 @@ type ClientTemplate struct {
 type ChainStrategy struct {
 	FrontTag       string `json:"frontTag"`
 	RequireHealthy bool   `json:"requireHealthy"`
+	AutoFailover   bool   `json:"autoFailover"`
 }
 
 // ProbePolicy controls the health check cadence and target.

@@ -23,6 +23,7 @@ type ApplyOptions struct {
 	MaxNodes       int                   `json:"maxNodes"`
 	RequireHealthy bool                  `json:"requireHealthy"`
 	SkipReconcile  bool                  `json:"skipReconcile"`
+	SkipVerify     bool                  `json:"skipVerify"`
 	OnProgress     func(done, total int) `json:"-"`
 }
 
@@ -45,12 +46,14 @@ type PlanResult struct {
 
 // ApplyResult reports what generation actually wrote.
 type ApplyResult struct {
-	Plan       *PlanResult `json:"plan"`
-	Created    int         `json:"created"`
-	Activated  int         `json:"activated"`
-	Inbounds   []int       `json:"inbounds"`
-	Skipped    int         `json:"skipped"`
-	Reconciled bool        `json:"reconciled"`
+	Plan         *PlanResult `json:"plan"`
+	Created      int         `json:"created"`
+	Activated    int         `json:"activated"`
+	Inbounds     []int       `json:"inbounds"`
+	Skipped      int         `json:"skipped"`
+	Reconciled   bool        `json:"reconciled"`
+	VerifyFailed int         `json:"verifyFailed"`
+	Errors       []string    `json:"errors,omitempty"`
 }
 
 const gigabytes = int64(1024 * 1024 * 1024)
@@ -383,6 +386,47 @@ func (s *Service) Apply(ctx context.Context, poolID int, opt ApplyOptions) (*App
 	}
 	res.Activated = len(pending)
 	res.Reconciled = s.Reconciler != nil
+
+	// Activation self-check: ask the core's router which outbound each new
+	// client actually reaches. A mismatch means the rule did not land, so the
+	// node goes back behind the gate instead of serving unprotected traffic.
+	if !opt.SkipVerify && s.Reconciler != nil {
+		var failedIDs []int
+		var failedEmails []string
+		for i := range pending {
+			matched, err := s.Reconciler.Verify(pending[i].node.InboundTag, pending[i].node.Email)
+			reason := ""
+			switch {
+			case err != nil:
+				reason = err.Error()
+			case matched != pending[i].node.OutboundTag:
+				reason = fmt.Sprintf("route mismatch: got %q want %q", matched, pending[i].node.OutboundTag)
+			default:
+				continue
+			}
+			failedIDs = append(failedIDs, pending[i].node.Id)
+			failedEmails = append(failedEmails, pending[i].node.Email)
+			res.Errors = append(res.Errors, pending[i].node.Name+": "+truncate(reason, 160))
+		}
+		if len(failedIDs) > 0 {
+			if err := database.GetDB().Model(&model.ChainNode{}).Where("id IN ?", failedIDs).
+				Updates(map[string]any{"status": "failed", "client_enabled": false}).Error; err != nil {
+				return res, err
+			}
+			if _, _, err := s.Client.BulkSetEnable(s.Inbound, failedEmails, false); err != nil {
+				return res, err
+			}
+			if err := s.BumpRevision(pool.Id); err != nil {
+				return res, err
+			}
+			if err := s.Reconciler.Apply(); err != nil {
+				return res, fmt.Errorf("reconcile after self-check failure: %w", err)
+			}
+			res.VerifyFailed = len(failedIDs)
+			res.Activated -= len(failedIDs)
+			return res, &PartialError{Message: fmt.Sprintf("%d of %d nodes failed the activation self-check", len(failedIDs), len(pending))}
+		}
+	}
 	if opt.OnProgress != nil {
 		opt.OnProgress(res.Activated, res.Activated)
 	}

@@ -101,7 +101,19 @@ make dist-stub && go build ./...
 - 质量门：`tsc --noEmit` 通过、`oxlint` 0 error（含图标 `aria-hidden`、表单控件 `aria-label`）、
   `navigation-contract` / `i18n-dead-keys` / `no-static-message` 全绿、`npm run build` 成功产出 `ChainProxyPage-*.js`。
 
-## 7. 下一步（M4）
+## 7. M4 故障切换与激活自检（已落地）
+
+| 能力 | 行为 |
+|---|---|
+| 激活自检 | 节点启用并 reconcile 后，用核心 `RoutingService.TestRoute`（`inboundTag + email`）核对实际命中的出站；不一致或无法验证 → 节点回 `failed`、客户端禁用、规则回黑洞，job 标记 `partial` |
+| 自动切换 | 池开启 `autoFailover` 后，每次探活结束跑一次 Failover：代理 `unhealthy/disabled` 的节点换绑到同池健康且未占用的备用代理；**出站 tag 不变**，无需改路由 |
+| 无备用兜底 | 没有可用备用时节点置 `failed` 并禁用客户端；注入器对 `failed/provisioning/disabled` 一律生成**黑洞规则**（绝不删除规则，避免回落直连） |
+| 手动操作 | `POST /pools/:id/failover`（job）、`POST /nodes/:id/rebind`（同步换绑 + reconcile） |
+| 可观测 | 节点错误用 Tooltip 展示；job 有 `partial` 状态；失败明细写入 job detail |
+
+新增测试：自检失败回滚（3 节点全部回退、reconcile 3 次）、换绑保持 tag、无备用时 gate、关闭自动切换时 skip、手动换绑。前端新增"自动切换"开关与节点"换绑"按钮。
+
+## 8. 下一步（M5）
 
 - `internal/web/service/chain`：池/代理/节点 CRUD、计划引擎、异步 job、探活调度；
 - `internal/web/controller/chain.go` + `endpoints.ts` 注册（契约测试强制）；
@@ -110,7 +122,7 @@ make dist-stub && go build ./...
 - 故障切换与黑洞兜底 job；
 - 多节点（runtime）下发。
 
-## 8. 环境变量
+## 9. 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|

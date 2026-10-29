@@ -2553,7 +2553,10 @@
         "disabled": "Disabled",
         "empty": "No pools yet. Create one to import proxies.",
         "counters": "{proxies} proxies · {nodes} nodes",
-        "label": "Label"
+        "label": "Label",
+        "failover": "Failover",
+        "autoFailover": "Auto failover",
+        "autoFailoverHint": "After each probe, move nodes whose proxy failed to a healthy spare; with no spare, gate them to the blackhole."
       },
       "import": {
         "title": "Import proxies into {name}",
@@ -2595,7 +2598,8 @@
         "enable": "Enable",
         "disable": "Disable",
         "filterPool": "Filter by pool",
-        "filterStatus": "Filter by status"
+        "filterStatus": "Filter by status",
+        "rebind": "Rebind"
       },
       "jobs": {
         "title": "Jobs",
@@ -2609,7 +2613,8 @@
         "created": "Pool created",
         "deleted": "Pool deleted",
         "enabled": "Node enabled",
-        "disabled": "Node disabled"
+        "disabled": "Node disabled",
+        "rebound": "Node rebound to a spare proxy"
       },
       "validation": {
         "required": "This field is required"

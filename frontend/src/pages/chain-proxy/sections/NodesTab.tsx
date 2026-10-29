@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Card, Select, Space, Table, Tag, Typography } from 'antd';
+import { Button, Card, Select, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 import { getMessage } from '@/utils/messageBus';
@@ -29,7 +29,7 @@ export default function NodesTab() {
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const { data, isLoading } = useChainNodes({ poolId, status, page, size: 50 });
-  const { setNodeEnabled } = useChainMutations();
+  const { setNodeEnabled, rebindNode } = useChainMutations();
 
   const toggle = async (node: ChainNode) => {
     const enable = node.status === 'disabled' || !node.clientEnabled;
@@ -38,6 +38,15 @@ export default function NodesTab() {
       getMessage().success(
         t(enable ? 'pages.chainProxy.toasts.enabled' : 'pages.chainProxy.toasts.disabled'),
       );
+    } catch (error) {
+      getMessage().error((error as Error).message);
+    }
+  };
+
+  const rebind = async (node: ChainNode) => {
+    try {
+      await rebindNode(node.id);
+      getMessage().success(t('pages.chainProxy.toasts.rebound'));
     } catch (error) {
       getMessage().error((error as Error).message);
     }
@@ -60,7 +69,14 @@ export default function NodesTab() {
       title: t('status'),
       dataIndex: 'status',
       width: 110,
-      render: (value: string) => <Tag color={nodeColor(value)}>{value}</Tag>,
+      render: (value: string, node) =>
+        node.error ? (
+          <Tooltip title={node.error}>
+            <Tag color={nodeColor(value)}>{value}</Tag>
+          </Tooltip>
+        ) : (
+          <Tag color={nodeColor(value)}>{value}</Tag>
+        ),
     },
     {
       title: t('pages.chainProxy.nodes.proxy'),
@@ -96,13 +112,18 @@ export default function NodesTab() {
     },
     {
       title: t('pages.chainProxy.pools.actions'),
-      width: 110,
+      width: 170,
       render: (_, node) => (
-        <Button size="small" onClick={() => toggle(node)}>
-          {node.status === 'disabled' || !node.clientEnabled
-            ? t('pages.chainProxy.nodes.enable')
-            : t('pages.chainProxy.nodes.disable')}
-        </Button>
+        <Space size={4}>
+          <Button size="small" onClick={() => toggle(node)}>
+            {node.status === 'disabled' || !node.clientEnabled
+              ? t('pages.chainProxy.nodes.enable')
+              : t('pages.chainProxy.nodes.disable')}
+          </Button>
+          <Button size="small" onClick={() => rebind(node)}>
+            {t('pages.chainProxy.nodes.rebind')}
+          </Button>
+        </Space>
       ),
     },
   ];

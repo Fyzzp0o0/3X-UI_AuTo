@@ -41,11 +41,13 @@ func (a *ChainController) initRouter(g *gin.RouterGroup) {
 	g.POST("/pools/:id/probe", a.probePool)
 	g.POST("/pools/:id/plan", a.planPool)
 	g.POST("/pools/:id/apply", a.applyPool)
+	g.POST("/pools/:id/failover", a.failoverPool)
 
 	g.GET("/nodes", a.listNodes)
 	g.GET("/nodes/:id", a.getNode)
 	g.POST("/nodes/:id/enable", a.setNodeEnabled(true))
 	g.POST("/nodes/:id/disable", a.setNodeEnabled(false))
+	g.POST("/nodes/:id/rebind", a.rebindNode)
 
 	g.GET("/jobs", a.listJobs)
 	g.GET("/jobs/:id", a.getJob)
@@ -199,6 +201,23 @@ func (a *ChainController) applyPool(c *gin.Context) {
 	_ = c.ShouldBindJSON(&opt)
 	job, err := a.svc.StartApplyJob(id, opt, "api")
 	jsonObj(c, job, err)
+}
+
+func (a *ChainController) failoverPool(c *gin.Context) {
+	id, ok := chainErrorID(c)
+	if !ok {
+		return
+	}
+	job, err := a.svc.StartFailoverJob(id, "api")
+	jsonObj(c, job, err)
+}
+
+func (a *ChainController) rebindNode(c *gin.Context) {
+	id, ok := chainErrorID(c)
+	if !ok {
+		return
+	}
+	jsonObj(c, nil, a.svc.RebindNode(id))
 }
 
 func (a *ChainController) listNodes(c *gin.Context) {

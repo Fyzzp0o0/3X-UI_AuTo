@@ -146,7 +146,7 @@ export function useChainMutations() {
         enabled: true,
         inbound: { protocol: 'vless', basePort: values.basePort, remark: values.name },
         client: { totalGB: values.totalGB, group: values.group ?? '' },
-        chain: { frontTag: values.frontTag ?? '' },
+        chain: { frontTag: values.frontTag ?? '', autoFailover: values.autoFailover ?? false },
         probe: { url: values.probeUrl ?? '' },
       };
       const msg = await HttpUtil.post('/panel/api/chain/pools', body, JSON_HEADERS);
@@ -192,6 +192,29 @@ export function useChainMutations() {
         JSON_HEADERS,
       );
       if (!msg?.success) throw new Error(msg?.msg || 'bulk action failed');
+    },
+    onSuccess: invalidate,
+  });
+
+  const failoverMut = useMutation({
+    mutationFn: async (poolId: number): Promise<ChainJob> => {
+      const msg = await HttpUtil.post(
+        `/panel/api/chain/pools/${poolId}/failover`,
+        {},
+        JSON_HEADERS,
+      );
+      if (!msg?.success) throw new Error(msg?.msg || 'failover failed');
+      const parsed = parseMsg(msg, ChainJobSchema, 'chain/failover');
+      if (!parsed.obj) throw new Error('job missing');
+      return parsed.obj;
+    },
+    onSuccess: invalidate,
+  });
+
+  const rebindMut = useMutation({
+    mutationFn: async (id: number) => {
+      const msg = await HttpUtil.post(`/panel/api/chain/nodes/${id}/rebind`, {}, JSON_HEADERS);
+      if (!msg?.success) throw new Error(msg?.msg || 'rebind failed');
     },
     onSuccess: invalidate,
   });
@@ -264,6 +287,8 @@ export function useChainMutations() {
     importing: importMut.isPending,
     bulkProxies: bulkProxiesMut.mutateAsync,
     probe: probeMut.mutateAsync,
+    failover: failoverMut.mutateAsync,
+    rebindNode: rebindMut.mutateAsync,
     plan: planMut.mutateAsync,
     planning: planMut.isPending,
     apply: applyMut.mutateAsync,

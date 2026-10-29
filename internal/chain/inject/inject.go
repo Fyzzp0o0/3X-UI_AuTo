@@ -48,7 +48,7 @@ func Build(nodes []Node) (outbounds []json.RawMessage, rules []json.RawMessage, 
 	seenTag := make(map[string]struct{}, len(nodes))
 	for _, n := range nodes {
 		switch n.Status {
-		case "active", "degraded", "provisioning":
+		case "active", "degraded", "provisioning", "failed", "disabled":
 		default:
 			continue
 		}
@@ -56,6 +56,17 @@ func Build(nodes []Node) (outbounds []json.RawMessage, rules []json.RawMessage, 
 			return nil, nil, fmt.Errorf("duplicate node email: %s", n.Email)
 		}
 		seenEmail[n.Email] = struct{}{}
+
+		// Anything not actively serving keeps a blackhole rule. Deleting the
+		// rule instead would let the client fall back to the default outbound.
+		if n.Status != "active" && n.Status != "degraded" {
+			rule, err := xraygen.InboundBlackholeRule(n.InboundTag, n.Email)
+			if err != nil {
+				return nil, nil, err
+			}
+			rules = append(rules, rule)
+			continue
+		}
 		if len(n.Hops) == 0 || n.Hops[0].Tag != n.OutboundTag {
 			return nil, nil, fmt.Errorf("node %d: landing hop does not match outbound tag", n.Id)
 		}
@@ -77,15 +88,6 @@ func Build(nodes []Node) (outbounds []json.RawMessage, rules []json.RawMessage, 
 			return nil, nil, fmt.Errorf("node %d: %w", n.Id, err)
 		}
 		outbounds = append(outbounds, built...)
-
-		if n.Status == "provisioning" {
-			rule, err := xraygen.InboundBlackholeRule(n.InboundTag, n.Email)
-			if err != nil {
-				return nil, nil, err
-			}
-			rules = append(rules, rule)
-			continue
-		}
 		rule, err := ruleFor(n)
 		if err != nil {
 			return nil, nil, err

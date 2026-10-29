@@ -3,6 +3,7 @@ package chain
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -19,6 +20,12 @@ const (
 	JobFailed    = "failed"
 )
 
+// PartialError marks a run that changed state but did not fully succeed, e.g.
+// some nodes failed the activation self-check. The job is reported as partial.
+type PartialError struct{ Message string }
+
+func (e *PartialError) Error() string { return e.Message }
+
 // StartApplyJob queues one generation run and returns immediately.
 func (s *Service) StartApplyJob(poolID int, opt ApplyOptions, operator string) (*model.ChainJob, error) {
 	job, err := s.newJob(poolID, "generate", operator)
@@ -28,10 +35,8 @@ func (s *Service) StartApplyJob(poolID int, opt ApplyOptions, operator string) (
 	go func() {
 		s.runJob(job.Id, func(ctx context.Context) (string, error) {
 			res, err := s.Apply(ctx, poolID, opt)
-			if err != nil {
-				return "", err
-			}
-			return marshalDetail(res), nil
+			// Keep the partial result in the job detail even when it failed.
+			return marshalDetail(res), err
 		})
 	}()
 	return job, nil
@@ -50,9 +55,41 @@ func (s *Service) StartProbeJob(poolID int, operator string) (*model.ChainJob, e
 		s.runJob(job.Id, func(ctx context.Context) (string, error) {
 			summary, err := s.ProbePool(ctx, poolID, ProbeOptions{})
 			if err != nil {
-				return "", err
+				return marshalDetail(summary), err
 			}
-			return marshalDetail(summary), nil
+			detail := map[string]any{"probe": summary}
+			if pool, perr := s.GetPool(poolID); perr == nil {
+				_, _, strategy, _ := parsePoolTemplates(pool)
+				if strategy.AutoFailover {
+					fo, ferr := s.Failover(ctx, poolID, FailoverOptions{})
+					if ferr != nil {
+						return marshalDetail(detail), ferr
+					}
+					detail["failover"] = fo
+					if fo.NoSpare > 0 || fo.Gated > 0 {
+						return marshalDetail(detail), &PartialError{Message: fmt.Sprintf("%d nodes gated: no spare proxy", fo.Gated)}
+					}
+				}
+			}
+			return marshalDetail(detail), nil
+		})
+	}()
+	return job, nil
+}
+
+// StartFailoverJob queues one manual failover pass for a pool.
+func (s *Service) StartFailoverJob(poolID int, operator string) (*model.ChainJob, error) {
+	if _, err := s.GetPool(poolID); err != nil {
+		return nil, err
+	}
+	job, err := s.newJob(poolID, "failover", operator)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		s.runJob(job.Id, func(ctx context.Context) (string, error) {
+			res, err := s.Failover(ctx, poolID, FailoverOptions{Force: true})
+			return marshalDetail(res), err
 		})
 	}()
 	return job, nil
@@ -112,6 +149,10 @@ func (s *Service) runJob(jobID int, run func(ctx context.Context) (string, error
 	message := ""
 	if err != nil {
 		status = JobFailed
+		var partial *PartialError
+		if errors.As(err, &partial) {
+			status = JobPartial
+		}
 		message = err.Error()
 	}
 	updates := map[string]any{

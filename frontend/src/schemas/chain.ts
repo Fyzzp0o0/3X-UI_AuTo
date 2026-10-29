@@ -144,5 +144,6 @@ export const PoolFormSchema = z.object({
   totalGB: z.number().int().min(0),
   group: z.string().max(64).optional(),
   probeUrl: z.string().max(512).optional(),
+  autoFailover: z.boolean().optional(),
 });
 export type PoolFormValues = z.infer<typeof PoolFormSchema>;

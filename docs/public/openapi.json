@@ -16042,6 +16042,47 @@
         }
       }
     },
+    "/panel/api/chain/pools/{id}/failover": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Queue a manual failover pass. Nodes whose proxy is unhealthy are rebound to a spare; with no spare they are gated to the blackhole.",
+        "operationId": "post_panel_api_chain_pools_id_failover",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Pool id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/chain/nodes": {
       "get": {
         "tags": [
@@ -16208,6 +16249,47 @@
         ],
         "summary": "Disable a node and its client. The gate rule stays, so traffic never falls back to the default outbound.",
         "operationId": "post_panel_api_chain_nodes_id_disable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Node id.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/chain/nodes/{id}/rebind": {
+      "post": {
+        "tags": [
+          "Chain Proxy"
+        ],
+        "summary": "Move one node to a spare healthy proxy immediately. The outbound tag and routing rule stay unchanged.",
+        "operationId": "post_panel_api_chain_nodes_id_rebind",
         "parameters": [
           {
             "name": "id",

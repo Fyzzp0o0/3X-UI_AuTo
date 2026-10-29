@@ -2553,7 +2553,10 @@
         "disabled": "已停用",
         "empty": "还没有代理池，先新建一个再导入代理。",
         "counters": "{proxies} 条代理 · {nodes} 个节点",
-        "label": "备注"
+        "label": "备注",
+        "failover": "故障切换",
+        "autoFailover": "自动切换",
+        "autoFailoverHint": "每次探活后，将代理失效的节点切换到健康备用；无备用时规则指向黑洞。"
       },
       "import": {
         "title": "导入代理到 {name}",
@@ -2595,7 +2598,8 @@
         "enable": "启用",
         "disable": "停用",
         "filterPool": "按池筛选",
-        "filterStatus": "按状态筛选"
+        "filterStatus": "按状态筛选",
+        "rebind": "换绑"
       },
       "jobs": {
         "title": "任务",
@@ -2609,7 +2613,8 @@
         "created": "代理池已创建",
         "deleted": "代理池已删除",
         "enabled": "节点已启用",
-        "disabled": "节点已停用"
+        "disabled": "节点已停用",
+        "rebound": "节点已换绑到备用代理"
       },
       "validation": {
         "required": "该字段必填"

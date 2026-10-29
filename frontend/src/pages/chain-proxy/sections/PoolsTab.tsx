@@ -10,6 +10,7 @@ import {
   Modal,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Tooltip,
@@ -22,6 +23,7 @@ import {
   PlayCircleOutlined,
   PlusOutlined,
   RadarChartOutlined,
+  SwapOutlined,
 } from '@ant-design/icons';
 import { FormProvider, useForm } from 'react-hook-form';
 
@@ -61,7 +63,7 @@ function healthColor(health: string): string {
 export default function PoolsTab({ meta, onJobStarted }: Props) {
   const { t } = useTranslation();
   const { pools, fetched } = useChainPools();
-  const { createPool, creating, deletePool, probe } = useChainMutations();
+  const { createPool, creating, deletePool, probe, failover } = useChainMutations();
   const [modal, modalContextHolder] = Modal.useModal();
   const [createOpen, setCreateOpen] = useState(false);
   const [importPool, setImportPool] = useState<ChainPool | null>(null);
@@ -104,6 +106,16 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
       getMessage().error((error as Error).message);
     }
   });
+
+  const onFailover = async (pool: ChainPool) => {
+    try {
+      const job = await failover(pool.id);
+      getMessage().success(t('pages.chainProxy.plan.queued', { id: job.id }));
+      onJobStarted(job.id);
+    } catch (error) {
+      getMessage().error((error as Error).message);
+    }
+  };
 
   const onProbe = async (pool: ChainPool) => {
     try {
@@ -206,6 +218,9 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
           >
             {t('pages.chainProxy.pools.probe')}
           </Button>
+          <Button size="small" icon={<SwapOutlined aria-hidden />} onClick={() => onFailover(pool)}>
+            {t('pages.chainProxy.pools.failover')}
+          </Button>
           <Button
             size="small"
             type="primary"
@@ -300,6 +315,14 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
             </FormField>
             <FormField name="probeUrl" label={t('pages.chainProxy.pools.probeUrl')}>
               <Input placeholder="https://www.cloudflare.com/cdn-cgi/trace" />
+            </FormField>
+            <FormField
+              name="autoFailover"
+              label={t('pages.chainProxy.pools.autoFailover')}
+              tooltip={t('pages.chainProxy.pools.autoFailoverHint')}
+              valueProp="checked"
+            >
+              <Switch aria-label={t('pages.chainProxy.pools.autoFailover')} />
             </FormField>
           </Form>
         </FormProvider>
