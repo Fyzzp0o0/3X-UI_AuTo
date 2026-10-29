@@ -1,5 +1,9 @@
 [English](/README.md) | [فارسی](/README.fa_IR.md) | [العربية](/README.ar_EG.md) | [中文](/README.zh_CN.md) | [Español](/README.es_ES.md) | [Русский](/README.ru_RU.md) | [Türkçe](/README.tr_TR.md)
 
+> **Fork notice** — This repository is a fork of [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) at `v3.11.0`, adding the **ChainForge** chain-proxy module (bulk SOCKS5 import → generated chained nodes). Module docs: [docs/chain-proxy.md](docs/chain-proxy.md). Upstream code and these changes are licensed under GPL-3.0; see [LICENSE](LICENSE).
+>
+> **Fork 说明** — 本仓库基于 3x-ui `v3.11.0`，新增链式代理模块 ChainForge（批量导入 SOCKS5 → 一键生成链式节点）。模块文档见 [docs/chain-proxy.md](docs/chain-proxy.md)，整体遵循 GPL-3.0。
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./media/3x-ui-dark.png">
