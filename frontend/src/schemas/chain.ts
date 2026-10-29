@@ -145,5 +145,18 @@ export const PoolFormSchema = z.object({
   group: z.string().max(64).optional(),
   probeUrl: z.string().max(512).optional(),
   autoFailover: z.boolean().optional(),
+  portEnd: z.number().int().min(0).max(65535).optional(),
+  security: z.enum(['none', 'tls', 'reality']).optional(),
+  network: z.enum(['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp']).optional(),
+  path: z.string().max(128).optional(),
+  transportHost: z.string().max(255).optional(),
+  tlsCert: z.string().max(512).optional(),
+  tlsKey: z.string().max(512).optional(),
+  tlsServerName: z.string().max(255).optional(),
+  realityDest: z.string().max(255).optional(),
+  realityServerNames: z.string().max(512).optional(),
+  realityShortIds: z.string().max(256).optional(),
+  realityPrivateKey: z.string().max(128).optional(),
+  realityFingerprint: z.string().max(32).optional(),
 });
 export type PoolFormValues = z.infer<typeof PoolFormSchema>;

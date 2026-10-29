@@ -25,7 +25,7 @@ import {
   RadarChartOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import { FormField, rhfZodValidate } from '@/components/form/rhf';
 import { getMessage } from '@/utils/messageBus';
@@ -80,8 +80,24 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
       group: '',
       frontTag: '',
       probeUrl: '',
+      portEnd: 0,
+      security: 'none',
+      network: 'tcp',
+      path: '',
+      transportHost: '',
+      tlsCert: '',
+      tlsKey: '',
+      tlsServerName: '',
+      realityDest: '',
+      realityServerNames: '',
+      realityShortIds: '',
+      realityPrivateKey: '',
+      realityFingerprint: 'chrome',
     },
   });
+
+  const security = useWatch({ control: methods.control, name: 'security' });
+  const network = useWatch({ control: methods.control, name: 'network' });
 
   const openCreate = () => {
     methods.reset({
@@ -93,6 +109,19 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
       group: '',
       frontTag: '',
       probeUrl: '',
+      portEnd: 0,
+      security: 'none',
+      network: 'tcp',
+      path: '',
+      transportHost: '',
+      tlsCert: '',
+      tlsKey: '',
+      tlsServerName: '',
+      realityDest: '',
+      realityServerNames: '',
+      realityShortIds: '',
+      realityPrivateKey: '',
+      realityFingerprint: 'chrome',
     });
     setCreateOpen(true);
   };
@@ -298,6 +327,80 @@ export default function PoolsTab({ meta, onJobStarted }: Props) {
                 <InputNumber min={1} max={65535} />
               </FormField>
             </Space>
+            <Space size={12} style={{ width: '100%' }} align="start">
+              <FormField name="security" label={t('pages.chainProxy.pools.security')}>
+                <Select
+                  options={['none', 'tls', 'reality'].map((value) => ({ value, label: value }))}
+                />
+              </FormField>
+              <FormField name="network" label={t('pages.chainProxy.pools.network')}>
+                <Select
+                  options={['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp'].map((value) => ({
+                    value,
+                    label: value,
+                  }))}
+                />
+              </FormField>
+              <FormField name="portEnd" label={t('pages.chainProxy.pools.portEnd')}>
+                <InputNumber min={0} max={65535} />
+              </FormField>
+            </Space>
+            {network !== 'tcp' ? (
+              <Space size={12} style={{ width: '100%' }} align="start">
+                <FormField name="path" label={t('pages.chainProxy.pools.path')}>
+                  <Input placeholder={network === 'grpc' ? 'chain-grpc' : '/chain'} />
+                </FormField>
+                {network !== 'grpc' ? (
+                  <FormField name="transportHost" label={t('pages.chainProxy.pools.transportHost')}>
+                    <Input placeholder="cdn.example.com" />
+                  </FormField>
+                ) : null}
+              </Space>
+            ) : null}
+            {security === 'tls' ? (
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <FormField name="tlsCert" label={t('pages.chainProxy.pools.tlsCert')}>
+                  <Input placeholder="/etc/ssl/fullchain.pem" />
+                </FormField>
+                <FormField name="tlsKey" label={t('pages.chainProxy.pools.tlsKey')}>
+                  <Input placeholder="/etc/ssl/privkey.pem" />
+                </FormField>
+                <FormField name="tlsServerName" label={t('pages.chainProxy.pools.tlsServerName')}>
+                  <Input placeholder="example.com" />
+                </FormField>
+              </Space>
+            ) : null}
+            {security === 'reality' ? (
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <FormField name="realityDest" label={t('pages.chainProxy.pools.realityDest')}>
+                  <Input placeholder="www.microsoft.com:443" />
+                </FormField>
+                <FormField
+                  name="realityServerNames"
+                  label={t('pages.chainProxy.pools.realityServerNames')}
+                >
+                  <Input placeholder="www.microsoft.com,www.bing.com" />
+                </FormField>
+                <FormField
+                  name="realityShortIds"
+                  label={t('pages.chainProxy.pools.realityShortIds')}
+                >
+                  <Input placeholder="0123456789abcdef" />
+                </FormField>
+                <FormField
+                  name="realityPrivateKey"
+                  label={t('pages.chainProxy.pools.realityPrivateKey')}
+                >
+                  <Input placeholder="auto" />
+                </FormField>
+                <FormField
+                  name="realityFingerprint"
+                  label={t('pages.chainProxy.pools.realityFingerprint')}
+                >
+                  <Input placeholder="chrome" />
+                </FormField>
+              </Space>
+            ) : null}
             <Space size={12} style={{ width: '100%' }} align="start">
               <FormField name="totalGB" label={t('pages.chainProxy.pools.totalGB')}>
                 <InputNumber min={0} />

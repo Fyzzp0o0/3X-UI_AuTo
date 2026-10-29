@@ -40,6 +40,7 @@ type PlanResult struct {
 	NewRules     int      `json:"newRules"`
 	Shards       int      `json:"shards"`
 	InboundTags  []string `json:"inboundTags"`
+	Ports        []int    `json:"ports"`
 	Conflicts    []string `json:"conflicts,omitempty"`
 	Warnings     []string `json:"warnings,omitempty"`
 }
@@ -110,29 +111,12 @@ func (s *Service) Plan(poolID int, opt ApplyOptions) (*PlanResult, error) {
 
 	shards := shardCount(len(eligible), pool.ShardSize)
 	res.Shards = shards
-	basePort := inboundTpl.BasePort
-	if basePort == 0 {
-		basePort = 2083
-	}
-	for i := 0; i < shards; i++ {
-		tag := shardTag(pool, i)
-		res.InboundTags = append(res.InboundTags, tag)
-		existing, err := findInboundByTag(tag)
-		if err != nil {
-			res.Conflicts = append(res.Conflicts, "cannot read inbound "+tag+": "+err.Error())
-			continue
-		}
-		if existing != nil {
-			continue
-		}
-		taken, err := inboundOnPort(basePort + i)
-		if err != nil {
-			res.Conflicts = append(res.Conflicts, "cannot inspect port "+fmt.Sprint(basePort+i))
-			continue
-		}
-		if taken != nil {
-			res.Conflicts = append(res.Conflicts, fmt.Sprintf("port %d already used by inbound %q", basePort+i, taken.Tag))
-		}
+	layout, err := s.shardLayout(pool, inboundTpl, shards)
+	if err != nil {
+		res.Conflicts = append(res.Conflicts, err.Error())
+	} else {
+		res.InboundTags = layout.tags
+		res.Ports = layout.ports
 	}
 	if strategy.FrontTag != "" {
 		tags, err := templateOutboundTags()
@@ -168,15 +152,6 @@ func shardTag(pool *model.ChainPool, index int) string {
 func findInboundByTag(tag string) (*model.Inbound, error) {
 	var ib model.Inbound
 	err := database.GetDB().Where("tag = ?", tag).First(&ib).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &ib, err
-}
-
-func inboundOnPort(port int) (*model.Inbound, error) {
-	var ib model.Inbound
-	err := database.GetDB().Where("port = ?", port).First(&ib).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -435,37 +410,31 @@ func (s *Service) Apply(ctx context.Context, poolID int, opt ApplyOptions) (*App
 
 // ensureShardInbounds reuses shard inbounds by tag and creates the missing ones.
 func (s *Service) ensureShardInbounds(pool *model.ChainPool, tpl InboundTemplate, shards int) ([]*model.Inbound, error) {
-	basePort := tpl.BasePort
-	if basePort == 0 {
-		basePort = 2083
+	layout, err := s.shardLayout(pool, tpl, shards)
+	if err != nil {
+		return nil, err
+	}
+	settings := `{"clients":[],"decryption":"none","fallbacks":[]}`
+	stream, err := buildStreamSettings(tpl)
+	if err != nil {
+		return nil, err
 	}
 	remark := tpl.Remark
 	if remark == "" {
 		remark = pool.Name
 	}
+	listen := tpl.Listen
 	out := make([]*model.Inbound, 0, shards)
 	for i := 0; i < shards; i++ {
-		tag := shardTag(pool, i)
-		ib, err := findInboundByTag(tag)
-		if err != nil {
-			return nil, err
-		}
-		if ib != nil {
-			out = append(out, ib)
+		if layout.existing[i] != nil {
+			out = append(out, layout.existing[i])
 			continue
 		}
-		port := basePort + i
-		if taken, err := inboundOnPort(port); err != nil {
-			return nil, err
-		} else if taken != nil {
-			return nil, fmt.Errorf("port %d already used by inbound %q", port, taken.Tag)
-		}
 		created, _, err := s.Inbound.AddInbound(&model.Inbound{
-			Remark: fmt.Sprintf("%s-%d", remark, i+1), Port: port, Protocol: model.VLESS,
-			Tag: tag, Enable: true,
-			Settings:       `{"clients":[],"decryption":"none","fallbacks":[]}`,
-			StreamSettings: `{"network":"tcp","security":"none"}`,
-			Sniffing:       `{"enabled":true,"destOverride":["http","tls"]}`,
+			Remark: fmt.Sprintf("%s-%d", remark, i+1), Port: layout.ports[i], Listen: listen,
+			Protocol: model.VLESS, Tag: layout.tags[i], Enable: true,
+			Settings: settings, StreamSettings: stream,
+			Sniffing: `{"enabled":true,"destOverride":["http","tls"]}`,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create shard inbound %d: %w", i, err)
@@ -473,6 +442,64 @@ func (s *Service) ensureShardInbounds(pool *model.ChainPool, tpl InboundTemplate
 		out = append(out, created)
 	}
 	return out, nil
+}
+
+type shardLayoutResult struct {
+	tags     []string
+	ports    []int
+	existing []*model.Inbound
+}
+
+// shardLayout resolves one port and inbound per shard, reusing stored shards
+// and allocating free ports from [basePort, portEnd] for the rest.
+func (s *Service) shardLayout(pool *model.ChainPool, tpl InboundTemplate, shards int) (*shardLayoutResult, error) {
+	used, err := inboundPorts()
+	if err != nil {
+		return nil, err
+	}
+	base := tpl.BasePort
+	if base == 0 {
+		base = 2083
+	}
+	res := &shardLayoutResult{
+		tags:     make([]string, 0, shards),
+		ports:    make([]int, 0, shards),
+		existing: make([]*model.Inbound, 0, shards),
+	}
+	for i := 0; i < shards; i++ {
+		tag := shardTag(pool, i)
+		ib, err := findInboundByTag(tag)
+		if err != nil {
+			return nil, err
+		}
+		if ib != nil {
+			res.tags = append(res.tags, tag)
+			res.ports = append(res.ports, ib.Port)
+			res.existing = append(res.existing, ib)
+			continue
+		}
+		port, err := allocateShardPorts(base, tpl.PortEnd, 1, used)
+		if err != nil {
+			return nil, err
+		}
+		res.tags = append(res.tags, tag)
+		res.ports = append(res.ports, port[0])
+		res.existing = append(res.existing, nil)
+	}
+	return res, nil
+}
+
+// inboundPorts collects every port a local inbound already listens on.
+func inboundPorts() (map[int]struct{}, error) {
+	var ports []int
+	if err := database.GetDB().Model(&model.Inbound{}).Pluck("port", &ports).Error; err != nil {
+		return nil, err
+	}
+	used := make(map[int]struct{}, len(ports))
+	for _, port := range ports {
+		used[port] = struct{}{}
+	}
+	return used, nil
 }
 
 // nowUnixMilli is a variable so tests can pin expiry math.

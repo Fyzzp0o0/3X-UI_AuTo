@@ -237,9 +237,12 @@ func TestImportSealsPasswordWhenEncryptionOn(t *testing.T) {
 	}
 }
 
-func TestPlanReportsPortConflict(t *testing.T) {
+func TestPlanShiftsOccupiedBasePort(t *testing.T) {
 	svc, _ := newTestService(t)
 	port := freePort(t)
+	if err := database.GetDB().Create(&model.Inbound{Tag: "taken", Port: port, Protocol: model.VLESS, Enable: true}).Error; err != nil {
+		t.Fatal(err)
+	}
 	in := testPoolInput(t, "conflict")
 	in.Inbound.BasePort = port
 	pool, err := svc.CreatePool(in)
@@ -247,15 +250,16 @@ func TestPlanReportsPortConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedProxies(t, pool.Id, 1, "healthy")
-	if err := database.GetDB().Create(&model.Inbound{Tag: "taken", Port: port, Protocol: model.VLESS, Enable: true}).Error; err != nil {
-		t.Fatal(err)
-	}
+
 	plan, err := svc.Plan(pool.Id, ApplyOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plan.Conflicts) == 0 || !strings.Contains(plan.Conflicts[0], "already used") {
-		t.Fatalf("conflicts = %v", plan.Conflicts)
+	if len(plan.Conflicts) != 0 {
+		t.Fatalf("unexpected conflicts: %v", plan.Conflicts)
+	}
+	if len(plan.Ports) != 1 || plan.Ports[0] == port {
+		t.Fatalf("ports = %v, want a free port after %d", plan.Ports, port)
 	}
 }
 
@@ -364,6 +368,53 @@ func TestApplyRollsBackWhenSelfCheckFails(t *testing.T) {
 	}
 	if rec.calls != 3 {
 		t.Fatalf("reconciler calls = %d, want 3 (gate, activate, rollback)", rec.calls)
+	}
+}
+
+func TestApplyRealityInboundAndPortShift(t *testing.T) {
+	svc, _ := newTestService(t)
+	occupied := freePort(t)
+	if err := database.GetDB().Create(&model.Inbound{
+		Tag: "foreign", Port: occupied, Protocol: model.VLESS, Enable: true,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	in := testPoolInput(t, "reality")
+	in.Inbound.BasePort = occupied
+	in.Inbound.Security = "reality"
+	in.Inbound.Reality = RealityOptions{Dest: "www.microsoft.com:443", ServerNames: []string{"www.microsoft.com"}}
+	pool, err := svc.CreatePool(in)
+	if err != nil {
+		t.Fatalf("CreatePool: %v", err)
+	}
+	_, _, _, _ = parsePoolTemplates(pool)
+	stored, err := svc.GetPool(pool.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, _, _ = parsePoolTemplates(stored)
+	seedProxies(t, pool.Id, 1, "healthy")
+
+	plan, err := svc.Plan(pool.Id, ApplyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Ports) != 1 || plan.Ports[0] == occupied {
+		t.Fatalf("ports = %v, want a port shifted away from %d", plan.Ports, occupied)
+	}
+	if _, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	var created model.Inbound
+	if err := database.GetDB().Where("tag = ?", plan.InboundTags[0]).First(&created).Error; err != nil {
+		t.Fatal(err)
+	}
+	if created.Port != plan.Ports[0] {
+		t.Fatalf("inbound port = %d, want %d", created.Port, plan.Ports[0])
+	}
+	if !strings.Contains(created.StreamSettings, "realitySettings") ||
+		!strings.Contains(created.StreamSettings, `"privateKey"`) {
+		t.Fatalf("stream settings missing reality: %s", created.StreamSettings)
 	}
 }
 

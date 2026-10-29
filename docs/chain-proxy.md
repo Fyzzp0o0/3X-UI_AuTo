@@ -113,7 +113,20 @@ make dist-stub && go build ./...
 
 新增测试：自检失败回滚（3 节点全部回退、reconcile 3 次）、换绑保持 tag、无备用时 gate、关闭自动切换时 skip、手动换绑。前端新增"自动切换"开关与节点"换绑"按钮。
 
-## 8. 下一步（M5）
+## 8. M5 入站模板扩展（已落地）
+
+| 能力 | 说明 |
+|---|---|
+| 安全 | `none` / `tls` / `reality`；TLS 校验证书与私钥文件存在且可读；REALITY 校验 `dest`、`serverNames`、`shortIds` |
+| 传输 | `tcp` / `ws` / `grpc` / `httpupgrade` / `xhttp`；`path`（grpc 为 serviceName）与 Host 头可配 |
+| REALITY 密钥 | 留空时用 `crypto/ecdh` 现生成 X25519 密钥对（base64 raw-url），并写入 `realitySettings.settings.publicKey` 供订阅链接使用；shortId 自动生成 4 组 |
+| 端口分配 | `basePort`..`portEnd` 区间自动找空闲端口；`basePort` 被占用时**自动顺延**而不是失败；区间耗尽报错 |
+| 一致性 | 生成的 streamSettings 同时供 Xray 配置与订阅/分享链接使用；Plan 会展示实际分配的端口 |
+| 前端 | 池表单新增安全/传输/端口段/TLS/REALITY 字段，按选择条件展开 |
+
+新增测试：5 种传输的 stream JSON、REALITY 自动密钥与 shortId、TLS 文件校验、非法组合拒绝、端口跳过/顺延/耗尽、REALITY 池端到端生成（入站端口顺延且 stream 含 privateKey）。
+
+## 9. 下一步（M6）
 
 - `internal/web/service/chain`：池/代理/节点 CRUD、计划引擎、异步 job、探活调度；
 - `internal/web/controller/chain.go` + `endpoints.ts` 注册（契约测试强制）；
@@ -122,7 +135,7 @@ make dist-stub && go build ./...
 - 故障切换与黑洞兜底 job；
 - 多节点（runtime）下发。
 
-## 9. 环境变量
+## 10. 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|

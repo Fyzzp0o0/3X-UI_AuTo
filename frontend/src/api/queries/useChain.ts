@@ -26,6 +26,13 @@ import {
 
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 
+function splitList(value?: string): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export type NodeQuery = {
   poolId?: number;
   status?: string;
@@ -144,7 +151,27 @@ export function useChainMutations() {
         mode: values.mode,
         shardSize: values.shardSize,
         enabled: true,
-        inbound: { protocol: 'vless', basePort: values.basePort, remark: values.name },
+        inbound: {
+          protocol: 'vless',
+          basePort: values.basePort,
+          portEnd: values.portEnd ?? 0,
+          remark: values.name,
+          network: values.network ?? 'tcp',
+          security: values.security ?? 'none',
+          transport: { path: values.path ?? '', host: values.transportHost ?? '' },
+          tls: {
+            certificateFile: values.tlsCert ?? '',
+            keyFile: values.tlsKey ?? '',
+            serverName: values.tlsServerName ?? '',
+          },
+          reality: {
+            dest: values.realityDest ?? '',
+            serverNames: splitList(values.realityServerNames),
+            shortIds: splitList(values.realityShortIds),
+            privateKey: values.realityPrivateKey ?? '',
+            fingerprint: values.realityFingerprint ?? '',
+          },
+        },
         client: { totalGB: values.totalGB, group: values.group ?? '' },
         chain: { frontTag: values.frontTag ?? '', autoFailover: values.autoFailover ?? false },
         probe: { url: values.probeUrl ?? '' },

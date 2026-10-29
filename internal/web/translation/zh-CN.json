@@ -2556,7 +2556,20 @@
         "label": "备注",
         "failover": "故障切换",
         "autoFailover": "自动切换",
-        "autoFailoverHint": "每次探活后，将代理失效的节点切换到健康备用；无备用时规则指向黑洞。"
+        "autoFailoverHint": "每次探活后，将代理失效的节点切换到健康备用；无备用时规则指向黑洞。",
+        "security": "安全",
+        "network": "传输",
+        "portEnd": "结束端口",
+        "path": "路径 / 服务名",
+        "transportHost": "Host 头",
+        "tlsCert": "证书文件",
+        "tlsKey": "私钥文件",
+        "tlsServerName": "TLS 服务器名",
+        "realityDest": "REALITY 目标",
+        "realityServerNames": "Server names（逗号分隔）",
+        "realityShortIds": "Short IDs（逗号分隔）",
+        "realityPrivateKey": "私钥（留空自动生成）",
+        "realityFingerprint": "指纹"
       },
       "import": {
         "title": "导入代理到 {name}",

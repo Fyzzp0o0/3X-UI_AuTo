@@ -76,12 +76,19 @@ type PoolInput struct {
 	OutboundExp bool            `json:"outboundStats"`
 }
 
-// InboundTemplate describes the shared entry point of a pool.
+// InboundTemplate describes the shared entry point of a pool: protocol,
+// port range, transport and security all live here and are stored as JSON.
 type InboundTemplate struct {
-	Protocol string `json:"protocol"`
-	BasePort int    `json:"basePort"`
-	Listen   string `json:"listen"`
-	Remark   string `json:"remark"`
+	Protocol  string           `json:"protocol"`
+	BasePort  int              `json:"basePort"`
+	PortEnd   int              `json:"portEnd,omitempty"`
+	Listen    string           `json:"listen,omitempty"`
+	Remark    string           `json:"remark,omitempty"`
+	Network   string           `json:"network,omitempty"`
+	Security  string           `json:"security,omitempty"`
+	Transport TransportOptions `json:"transport,omitempty"`
+	TLS       TLSOptions       `json:"tls,omitempty"`
+	Reality   RealityOptions   `json:"reality,omitempty"`
 }
 
 // ClientTemplate is applied to every generated client.
@@ -193,12 +200,6 @@ func validatePoolInput(in PoolInput) error {
 	if in.ShardSize < 0 || in.ShardSize > 500 {
 		return errors.New("shardSize must be 0-500")
 	}
-	if in.Inbound.Protocol != "" && in.Inbound.Protocol != "vless" {
-		return errors.New("only vless inbounds are supported in M1")
-	}
-	if in.Inbound.BasePort < 1 || in.Inbound.BasePort > 65535 {
-		return errors.New("basePort must be 1-65535")
-	}
 	if in.Client.ExpiryDays < 0 || in.Client.TotalGB < 0 || in.Client.LimitIP < 0 {
 		return errors.New("client quotas cannot be negative")
 	}
@@ -215,6 +216,9 @@ func validatePoolInput(in PoolInput) error {
 
 // CreatePool stores a new pool and derives its immutable tag namespace.
 func (s *Service) CreatePool(in PoolInput) (*model.ChainPool, error) {
+	if err := normalizeInboundTemplate(&in.Inbound); err != nil {
+		return nil, err
+	}
 	if err := validatePoolInput(in); err != nil {
 		return nil, err
 	}
@@ -247,6 +251,9 @@ func (s *Service) CreatePool(in PoolInput) (*model.ChainPool, error) {
 
 // UpdatePool rewrites the editable fields; the tag namespace never changes.
 func (s *Service) UpdatePool(id int, in PoolInput) error {
+	if err := normalizeInboundTemplate(&in.Inbound); err != nil {
+		return err
+	}
 	if err := validatePoolInput(in); err != nil {
 		return err
 	}

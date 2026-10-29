@@ -2556,7 +2556,20 @@
         "label": "Label",
         "failover": "Failover",
         "autoFailover": "Auto failover",
-        "autoFailoverHint": "After each probe, move nodes whose proxy failed to a healthy spare; with no spare, gate them to the blackhole."
+        "autoFailoverHint": "After each probe, move nodes whose proxy failed to a healthy spare; with no spare, gate them to the blackhole.",
+        "security": "Security",
+        "network": "Transport",
+        "portEnd": "End port",
+        "path": "Path / service name",
+        "transportHost": "Host header",
+        "tlsCert": "Certificate file",
+        "tlsKey": "Key file",
+        "tlsServerName": "TLS server name",
+        "realityDest": "REALITY dest",
+        "realityServerNames": "Server names (comma separated)",
+        "realityShortIds": "Short IDs (comma separated)",
+        "realityPrivateKey": "Private key (blank = generate)",
+        "realityFingerprint": "Fingerprint"
       },
       "import": {
         "title": "Import proxies into {name}",
