@@ -83,7 +83,25 @@ make dist-stub && go build ./...
 - `internal/web/chain_scope_test.go`：monitor token 访问 chain 路由必须 403；
 - `TestRouteRegistryContract`：18 个新路由必须在 OpenAPI 注册表里。
 
-## 6. 下一步（M3 前端）
+## 6. M3 前端（已落地）
+
+单个一级路由 `/chain-proxy`，页面内四个 AntD Tabs（路由是扁平清单，契约测试禁止嵌套路由）：
+
+| Tab | 内容 | 关键文件 |
+|---|---|---|
+| 总览 | 池/代理/健康/节点 KPI，池健康度进度条，池卡片 | `sections/OverviewTab.tsx` |
+| 代理池 | 池表格、新建（RHF 表单）、导入 Drawer、代理列表 Drawer、探活、生成计划 | `sections/PoolsTab.tsx`、`wizard/ImportDrawer.tsx`、`wizard/PlanModal.tsx` |
+| 节点 | 池/状态筛选、分页、代理健康/延迟/出口 IP、启停 | `sections/NodesTab.tsx` |
+| 任务 | 任务表格 + 当前任务进度（1.5s 轮询） | `sections/JobsTab.tsx` |
+
+- 页面自渲染 `ConfigProvider` + `AppSidebar` + `Layout`，继承现有亮/暗/极暗主题；新增 `.chain-proxy-page` 样式块；
+- 数据层 `api/queries/useChain.ts`：TanStack Query + `HttpUtil` + `parseMsg`（Zod 校验），变更后失效 `keys.chain`；
+- 导入向导先 `dryRun` 预览（逐行状态），确认后才落库；生成前展示 Plan 的冲突与计数，确认后跳转任务页看进度；
+- i18n：`menu.chainProxy` 与 `pages.chainProxy.*` 已写入 14 个 locale（zh-CN 人工翻译，其余英文兜底）；
+- 质量门：`tsc --noEmit` 通过、`oxlint` 0 error（含图标 `aria-hidden`、表单控件 `aria-label`）、
+  `navigation-contract` / `i18n-dead-keys` / `no-static-message` 全绿、`npm run build` 成功产出 `ChainProxyPage-*.js`。
+
+## 7. 下一步（M4）
 
 - `internal/web/service/chain`：池/代理/节点 CRUD、计划引擎、异步 job、探活调度；
 - `internal/web/controller/chain.go` + `endpoints.ts` 注册（契约测试强制）；
@@ -92,7 +110,7 @@ make dist-stub && go build ./...
 - 故障切换与黑洞兜底 job；
 - 多节点（runtime）下发。
 
-## 7. 环境变量
+## 8. 环境变量
 
 | 变量 | 默认 | 说明 |
 |---|---|---|

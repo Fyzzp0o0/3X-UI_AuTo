@@ -125,7 +125,8 @@
     "openMenu": "باز کردن منو",
     "pinSidebar": "ثابت کردن نوار کناری",
     "unpinSidebar": "برداشتن تثبیت نوار کناری",
-    "subFormats": "Sub Formats"
+    "subFormats": "Sub Formats",
+    "chainProxy": "Chain Proxy"
   },
   "pages": {
     "login": {
@@ -2502,6 +2503,117 @@
       "visit": "مشاهده",
       "yourBrand": "جای برند شما",
       "yourBrandText": "شرکت خود را جلوی چشم هزاران ادمین سروری بگذارید که هر روز 3X-UI را باز می‌کنند."
+    },
+    "chainProxy": {
+      "title": "Chain Proxy",
+      "tabs": {
+        "overview": "Overview",
+        "pools": "Pools",
+        "nodes": "Nodes",
+        "jobs": "Jobs"
+      },
+      "badges": {
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "noEncryption": "Credentials are not encrypted"
+      },
+      "hints": {
+        "disabled": "The module is disabled by XUI_CHAIN_ENABLED=false. Generation and injection are skipped."
+      },
+      "summary": {
+        "pools": "Pools",
+        "proxies": "Proxies",
+        "healthy": "Healthy",
+        "nodes": "Nodes"
+      },
+      "pools": {
+        "title": "Proxy pools",
+        "add": "New pool",
+        "manage": "Manage",
+        "name": "Name",
+        "mode": "Mode",
+        "shard": "per shard",
+        "shardSize": "Shard size",
+        "basePort": "Base port",
+        "totalGB": "Quota (GB)",
+        "group": "Group",
+        "frontTag": "Front outbound tag",
+        "frontTagHint": "Existing Xray outbound used as dialerProxy for every node in this pool.",
+        "probeUrl": "Probe URL",
+        "proxies": "Proxies",
+        "nodes": "Nodes",
+        "actions": "Actions",
+        "import": "Import",
+        "probe": "Probe",
+        "generate": "Generate",
+        "delete": "Delete",
+        "deleteTitle": "Delete pool {name}?",
+        "deleteHint": "Nodes, hops, proxies and their clients are removed. Shared inbounds stay in place.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "empty": "No pools yet. Create one to import proxies.",
+        "counters": "{proxies} proxies · {nodes} nodes",
+        "label": "Label"
+      },
+      "import": {
+        "title": "Import proxies into {name}",
+        "hint": "One proxy per line: URI, host:port:user:pass, user:pass@host:port, Clash map or base64. Invalid lines are reported, never silently dropped.",
+        "preview": "Preview",
+        "submit": "Import",
+        "done": "{created} imported, {duplicate} duplicates skipped",
+        "valid": "Valid",
+        "duplicate": "Duplicate",
+        "invalid": "Invalid",
+        "created": "Created",
+        "line": "Line",
+        "state": "State",
+        "ok": "OK",
+        "allowPrivate": "Allow private/loopback upstreams"
+      },
+      "plan": {
+        "title": "Generate nodes for {name}",
+        "requireHealthy": "Only proxies whose last probe succeeded",
+        "proxies": "Proxies",
+        "eligible": "Eligible",
+        "existing": "Existing nodes",
+        "newNodes": "New nodes",
+        "shards": "Shard inbounds",
+        "rules": "New rules",
+        "conflicts": "Conflicts block generation",
+        "ready": "Ready to generate. Clients are created disabled and activated after routing is live.",
+        "apply": "Generate",
+        "queued": "Job #{id} queued"
+      },
+      "nodes": {
+        "title": "Nodes",
+        "name": "Node",
+        "proxy": "Proxy",
+        "latency": "Latency",
+        "exitIp": "Exit IP",
+        "inbound": "Inbound",
+        "outbound": "Outbound",
+        "enable": "Enable",
+        "disable": "Disable",
+        "filterPool": "Filter by pool",
+        "filterStatus": "Filter by status"
+      },
+      "jobs": {
+        "title": "Jobs",
+        "current": "Job #{id}",
+        "kind": "Kind",
+        "progress": "Progress",
+        "message": "Message",
+        "created": "Created"
+      },
+      "toasts": {
+        "created": "Pool created",
+        "deleted": "Pool deleted",
+        "enabled": "Node enabled",
+        "disabled": "Node disabled"
+      },
+      "validation": {
+        "required": "This field is required"
+      }
     }
   },
   "tgbot": {

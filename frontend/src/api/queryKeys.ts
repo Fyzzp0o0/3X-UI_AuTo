@@ -41,6 +41,16 @@ export const keys = {
     lastOnline: () => ['clients', 'lastOnline'] as const,
     groups: () => ['clients', 'groups'] as const,
   },
+  chain: {
+    root: () => ['chain'] as const,
+    meta: () => ['chain', 'meta'] as const,
+    pools: () => ['chain', 'pools'] as const,
+    proxies: (poolId: number, page: number, size: number) =>
+      ['chain', 'proxies', poolId, page, size] as const,
+    nodes: (params: unknown) => ['chain', 'nodes', params] as const,
+    jobs: (poolId?: number) => ['chain', 'jobs', poolId ?? 0] as const,
+    job: (id: number) => ['chain', 'job', id] as const,
+  },
   xray: {
     root: () => ['xray'] as const,
     config: () => ['xray', 'config'] as const,

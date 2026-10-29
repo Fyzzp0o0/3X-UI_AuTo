@@ -125,7 +125,8 @@
     "openMenu": "打开菜单",
     "pinSidebar": "固定侧边栏",
     "unpinSidebar": "取消固定侧边栏",
-    "subFormats": "Sub Formats"
+    "subFormats": "Sub Formats",
+    "chainProxy": "链式代理"
   },
   "pages": {
     "login": {
@@ -2502,6 +2503,117 @@
       "visit": "访问",
       "yourBrand": "您的品牌展示位",
       "yourBrandText": "让每天打开 3X-UI 的数千名服务器管理员看到您的公司。"
+    },
+    "chainProxy": {
+      "title": "链式代理",
+      "tabs": {
+        "overview": "总览",
+        "pools": "代理池",
+        "nodes": "节点",
+        "jobs": "任务"
+      },
+      "badges": {
+        "enabled": "已启用",
+        "disabled": "已停用",
+        "noEncryption": "凭证未加密"
+      },
+      "hints": {
+        "disabled": "模块已被 XUI_CHAIN_ENABLED=false 关闭，生成与注入均不会执行。"
+      },
+      "summary": {
+        "pools": "代理池",
+        "proxies": "代理",
+        "healthy": "健康",
+        "nodes": "节点"
+      },
+      "pools": {
+        "title": "代理池",
+        "add": "新建代理池",
+        "manage": "管理",
+        "name": "名称",
+        "mode": "模式",
+        "shard": "每片客户端",
+        "shardSize": "分片大小",
+        "basePort": "起始端口",
+        "totalGB": "配额（GB）",
+        "group": "分组",
+        "frontTag": "前置出站标签",
+        "frontTagHint": "使用 Xray 模板里已有的出站作为本池所有节点的 dialerProxy。",
+        "probeUrl": "探活 URL",
+        "proxies": "代理",
+        "nodes": "节点",
+        "actions": "操作",
+        "import": "导入",
+        "probe": "探活",
+        "generate": "生成",
+        "delete": "删除",
+        "deleteTitle": "删除代理池 {name}？",
+        "deleteHint": "将删除节点、跳、代理及其客户端；共享入站保留。",
+        "enabled": "已启用",
+        "disabled": "已停用",
+        "empty": "还没有代理池，先新建一个再导入代理。",
+        "counters": "{proxies} 条代理 · {nodes} 个节点",
+        "label": "备注"
+      },
+      "import": {
+        "title": "导入代理到 {name}",
+        "hint": "每行一条：URI、host:port:user:pass、user:pass@host:port、Clash 单行或 base64。非法行会标红，不会静默丢弃。",
+        "preview": "预览",
+        "submit": "导入",
+        "done": "已导入 {created} 条，跳过 {duplicate} 条重复",
+        "valid": "有效",
+        "duplicate": "重复",
+        "invalid": "无效",
+        "created": "已创建",
+        "line": "行",
+        "state": "状态",
+        "ok": "正常",
+        "allowPrivate": "允许私网/回环上游"
+      },
+      "plan": {
+        "title": "为 {name} 生成节点",
+        "requireHealthy": "仅使用上次探活成功的代理",
+        "proxies": "代理",
+        "eligible": "可用",
+        "existing": "已有节点",
+        "newNodes": "新增节点",
+        "shards": "分片入站",
+        "rules": "新增规则",
+        "conflicts": "存在冲突，无法生成",
+        "ready": "可以生成。客户端先以禁用状态创建，路由生效后再启用。",
+        "apply": "生成",
+        "queued": "任务 #{id} 已排队"
+      },
+      "nodes": {
+        "title": "节点",
+        "name": "节点",
+        "proxy": "代理",
+        "latency": "延迟",
+        "exitIp": "出口 IP",
+        "inbound": "入站",
+        "outbound": "出站",
+        "enable": "启用",
+        "disable": "停用",
+        "filterPool": "按池筛选",
+        "filterStatus": "按状态筛选"
+      },
+      "jobs": {
+        "title": "任务",
+        "current": "任务 #{id}",
+        "kind": "类型",
+        "progress": "进度",
+        "message": "消息",
+        "created": "创建时间"
+      },
+      "toasts": {
+        "created": "代理池已创建",
+        "deleted": "代理池已删除",
+        "enabled": "节点已启用",
+        "disabled": "节点已停用"
+      },
+      "validation": {
+        "required": "该字段必填"
+      }
     }
   },
   "tgbot": {

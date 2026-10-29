@@ -1,0 +1,47 @@
+.chain-proxy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chain-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.chain-small {
+  font-size: 12px;
+}
+
+.chain-stat-card {
+  border-radius: 12px;
+}
+
+.chain-pool-card {
+  border-radius: 12px;
+  height: 100%;
+}
+
+.chain-plan-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+.chain-conflict-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.chain-proxy-page .ant-table-tbody > tr > td {
+  vertical-align: middle;
+}
+
+@media (max-width: 768px) {
+  .chain-proxy-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
