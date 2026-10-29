@@ -242,7 +242,7 @@ func (a *ChainController) getNode(c *gin.Context) {
 		jsonObj(c, nil, err)
 		return
 	}
-	jsonObj(c, gin.H{"node": node, "hops": hops}, nil)
+	jsonObj(c, gin.H{"node": node, "hops": hops, "links": a.svc.NodeLinks(id, resolveHost(c))}, nil)
 }
 
 func (a *ChainController) setNodeEnabled(enable bool) gin.HandlerFunc {

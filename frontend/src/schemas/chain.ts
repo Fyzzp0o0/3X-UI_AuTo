@@ -64,6 +64,23 @@ export const ChainNodeSchema = z.object({
 });
 export type ChainNode = z.infer<typeof ChainNodeSchema>;
 
+export const ChainHopSchema = z.object({
+  id: z.number().optional(),
+  nodeId: z.number().optional(),
+  position: z.number(),
+  proxyId: z.number().nullable().optional(),
+  outboundTag: z.string(),
+  kind: z.string(),
+});
+export type ChainHop = z.infer<typeof ChainHopSchema>;
+
+export const ChainNodeDetailSchema = z.object({
+  node: ChainNodeSchema,
+  hops: z.array(ChainHopSchema).default([]),
+  links: z.array(z.string()).default([]),
+});
+export type ChainNodeDetail = z.infer<typeof ChainNodeDetailSchema>;
+
 export const ChainJobSchema = z.object({
   id: z.number(),
   poolId: z.number().nullable().optional(),

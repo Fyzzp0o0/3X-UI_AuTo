@@ -48,6 +48,7 @@ export const keys = {
     proxies: (poolId: number, page: number, size: number) =>
       ['chain', 'proxies', poolId, page, size] as const,
     nodes: (params: unknown) => ['chain', 'nodes', params] as const,
+    node: (id: number) => ['chain', 'node', id] as const,
     jobs: (poolId?: number) => ['chain', 'jobs', poolId ?? 0] as const,
     job: (id: number) => ['chain', 'job', id] as const,
   },

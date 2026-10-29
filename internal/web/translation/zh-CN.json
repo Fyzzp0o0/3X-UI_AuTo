@@ -2612,7 +2612,16 @@
         "disable": "停用",
         "filterPool": "按池筛选",
         "filterStatus": "按状态筛选",
-        "rebind": "换绑"
+        "rebind": "换绑",
+        "detailTitle": "节点详情",
+        "email": "Email",
+        "chain": "链路",
+        "landing": "落地",
+        "front": "前置",
+        "internet": "互联网",
+        "links": "分享链接",
+        "noLinks": "暂无分享链接：订阅链接构建器未注册，或客户端没有绑定入站。",
+        "qr": "链接二维码"
       },
       "jobs": {
         "title": "任务",

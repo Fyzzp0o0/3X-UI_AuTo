@@ -6,6 +6,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/messageBus';
 import { useChainMutations, useChainNodes, useChainPools } from '@/api/queries/useChain';
 import type { ChainNode } from '@/schemas/chain';
+import NodeDrawer from '../nodes/NodeDrawer';
 
 function nodeColor(status: string): string {
   switch (status) {
@@ -28,6 +29,7 @@ export default function NodesTab() {
   const [poolId, setPoolId] = useState<number | undefined>(undefined);
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
+  const [detailId, setDetailId] = useState<number | null>(null);
   const { data, isLoading } = useChainNodes({ poolId, status, page, size: 50 });
   const { setNodeEnabled, rebindNode } = useChainMutations();
 
@@ -58,7 +60,14 @@ export default function NodesTab() {
       dataIndex: 'name',
       render: (name: string, node) => (
         <Space direction="vertical" size={0}>
-          <Typography.Text strong>{name}</Typography.Text>
+          <Button
+            type="link"
+            size="small"
+            style={{ padding: 0 }}
+            onClick={() => setDetailId(node.id)}
+          >
+            {name}
+          </Button>
           <Typography.Text type="secondary" className="chain-mono chain-small">
             {node.email}
           </Typography.Text>
@@ -174,6 +183,7 @@ export default function NodesTab() {
           showSizeChanger: false,
         }}
       />
+      <NodeDrawer nodeId={detailId} onClose={() => setDetailId(null)} />
     </Card>
   );
 }

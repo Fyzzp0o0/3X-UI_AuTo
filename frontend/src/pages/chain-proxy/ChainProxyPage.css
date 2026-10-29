@@ -45,3 +45,27 @@
     flex-direction: column;
   }
 }
+
+.chain-topology {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chain-arrow {
+  color: var(--ant-color-text-quaternary);
+}
+
+.chain-link-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.chain-link-row .ant-typography {
+  margin-bottom: 0;
+  overflow-wrap: anywhere;
+}

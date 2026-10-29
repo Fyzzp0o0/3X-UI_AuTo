@@ -9,6 +9,7 @@ import {
   ChainJobSchema,
   ChainListSchema,
   ChainMetaSchema,
+  ChainNodeDetailSchema,
   ChainNodeSchema,
   ChainPlanSchema,
   ChainPoolListSchema,
@@ -18,6 +19,7 @@ import {
   type ChainJob,
   type ChainMeta,
   type ChainNode,
+  type ChainNodeDetail,
   type ChainPlan,
   type ChainPool,
   type ChainProxy,
@@ -101,6 +103,22 @@ export function useChainNodes(params: NodeQuery) {
       if (!msg?.success) throw new Error(msg?.msg || 'failed to fetch nodes');
       const parsed = parseMsg(msg, ChainListSchema(ChainNodeSchema), 'chain/nodes');
       return parsed.obj ?? { items: [], total: 0 };
+    },
+  });
+}
+
+export function useChainNode(nodeId: number | null) {
+  return useQuery({
+    queryKey: keys.chain.node(nodeId ?? 0),
+    enabled: nodeId != null && nodeId > 0,
+    queryFn: async (): Promise<ChainNodeDetail> => {
+      const msg = await HttpUtil.get(`/panel/api/chain/nodes/${nodeId}`, undefined, {
+        silent: true,
+      });
+      if (!msg?.success) throw new Error(msg?.msg || 'failed to fetch node');
+      const parsed = parseMsg(msg, ChainNodeDetailSchema, 'chain/nodes/id');
+      if (!parsed.obj) throw new Error('node missing');
+      return parsed.obj;
     },
   });
 }

@@ -418,6 +418,39 @@ func TestApplyRealityInboundAndPortShift(t *testing.T) {
 	}
 }
 
+type fakeLinks struct{}
+
+func (fakeLinks) SubLinksForSubId(string, string) ([]string, error) { return nil, nil }
+
+func (fakeLinks) LinksForClient(host string, _ *model.Inbound, email string) []string {
+	return []string{"vless://" + email + "@" + host}
+}
+
+func (fakeLinks) LinksForInbounds(string, []*model.Inbound) []string { return nil }
+
+func TestNodeLinksUseSubLinkProvider(t *testing.T) {
+	svc, _ := newTestService(t)
+	service.RegisterSubLinkProvider(fakeLinks{})
+	t.Cleanup(func() { service.RegisterSubLinkProvider(nil) })
+
+	pool, err := svc.CreatePool(testPoolInput(t, "links"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedProxies(t, pool.Id, 1, "healthy")
+	if _, err := svc.Apply(context.Background(), pool.Id, ApplyOptions{}); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	var node model.ChainNode
+	if err := database.GetDB().First(&node).Error; err != nil {
+		t.Fatal(err)
+	}
+	links := svc.NodeLinks(node.Id, "panel.example.com")
+	if len(links) != 1 || !strings.Contains(links[0], node.Email) || !strings.Contains(links[0], "panel.example.com") {
+		t.Fatalf("links = %v", links)
+	}
+}
+
 func TestApplyRequireHealthySkipsUnknown(t *testing.T) {
 	svc, _ := newTestService(t)
 	pool, err := svc.CreatePool(testPoolInput(t, "healthy"))

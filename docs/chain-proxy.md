@@ -123,6 +123,7 @@ make dist-stub && go build ./...
 | 端口分配 | `basePort`..`portEnd` 区间自动找空闲端口；`basePort` 被占用时**自动顺延**而不是失败；区间耗尽报错 |
 | 一致性 | 生成的 streamSettings 同时供 Xray 配置与订阅/分享链接使用；Plan 会展示实际分配的端口 |
 | 前端 | 池表单新增安全/传输/端口段/TLS/REALITY 字段，按选择条件展开 |
+| 节点详情 | 抽屉展示状态/入站/出站/落地/前置链路；复用 `GetAllClientLinks` 输出分享链接（可复制 + 二维码） |
 
 新增测试：5 种传输的 stream JSON、REALITY 自动密钥与 shortId、TLS 文件校验、非法组合拒绝、端口跳过/顺延/耗尽、REALITY 池端到端生成（入站端口顺延且 stream 含 privateKey）。
 

@@ -581,6 +581,20 @@ func (s *Service) GetNode(id int) (*model.ChainNode, []model.ChainNodeHop, error
 	return &n, hops, nil
 }
 
+// NodeLinks renders the node client's share links (VLESS/Clash-ready URIs).
+// A missing sub-link provider is not an error: the detail view still renders.
+func (s *Service) NodeLinks(nodeID int, host string) []string {
+	var node model.ChainNode
+	if err := database.GetDB().First(&node, nodeID).Error; err != nil {
+		return nil
+	}
+	links, err := s.Inbound.GetAllClientLinks(host, node.Email)
+	if err != nil {
+		return nil
+	}
+	return links
+}
+
 // SetNodeEnabled toggles a node and its client. Disabling keeps the gate rule
 // so traffic can never fall back to the default outbound.
 func (s *Service) SetNodeEnabled(poolID, nodeID int, enable bool) error {

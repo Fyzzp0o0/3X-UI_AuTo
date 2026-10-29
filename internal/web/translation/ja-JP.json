@@ -2612,7 +2612,16 @@
         "disable": "Disable",
         "filterPool": "Filter by pool",
         "filterStatus": "Filter by status",
-        "rebind": "Rebind"
+        "rebind": "Rebind",
+        "detailTitle": "Node detail",
+        "email": "Email",
+        "chain": "Chain",
+        "landing": "Landing",
+        "front": "Front",
+        "internet": "Internet",
+        "links": "Share links",
+        "noLinks": "No share links yet. The subscription link builder is not registered, or the client has no bound inbound.",
+        "qr": "Link QR code"
       },
       "jobs": {
         "title": "Jobs",
