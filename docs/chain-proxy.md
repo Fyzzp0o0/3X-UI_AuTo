@@ -144,7 +144,7 @@ make dist-stub && go build ./...
 | 能力 | 说明 |
 |---|---|
 | 安装脚本 | `install-chain.sh`：按架构下载 Release + SHA-256 校验、systemd、生成 0600 环境文件（含加密密钥）、首次安装随机密码、升级保留数据、`--uninstall [--purge]`、`--local` 离线安装 |
-| 发布流程 | `.github/workflows/chain-release.yml`：tag 或手动触发，构建 `linux-amd64/arm64` 静态包（musl + Xray + geo 数据），附 SHA-256 到 Release |
+| 发布流程 | `.github/workflows/chain-release.yml`：tag 或手动触发，构建 `linux-amd64/arm64` 静态包（musl + Xray + geo 数据），附 SHA-256 到 Release；首个发布 `v3.11.0-chain.1` 已验证下载与校验和 |
 | README | 面向本 fork 重写：功能、三种安装方式、使用流程、安全模型、API、运维/备份、开发与已知限制 |
 | 单代理运维 | `POST /proxies/:id/probe` 即时探活；`POST /proxies/:id` 编辑地址/端口/账号/密码（密码留空保留、写入即加密、指纹冲突拒绝） |
 | 单节点删除 | `POST /nodes/:id/delete`：禁用并删除客户端、跳、节点，单次 reconcile |

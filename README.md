@@ -1,5 +1,8 @@
 # 3X-UI AuTo · ChainForge
 
+[![Release](https://img.shields.io/github/v/release/Fyzzp0o0/3X-UI_AuTo?label=release)](https://github.com/Fyzzp0o0/3X-UI_AuTo/releases)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+
 > 基于 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) `v3.11.0` 的 fork，新增**链式代理工厂**模块：
 > 把成百上千条 SOCKS5 批量导入，一键生成“已配置链式代理”的可售节点。
 > 上游代码与本文修改均遵循 **GPL-3.0**（见 [LICENSE](LICENSE)）。
@@ -54,7 +57,9 @@ ChainForge 补上的是**批发层**：
 
 ## 快速开始
 
-### 方式 A：一键安装（Linux + systemd，需要已发布的 Release）
+### 方式 A：一键安装（Linux + systemd）
+
+当前最新发布：[v3.11.0-chain.1](https://github.com/Fyzzp0o0/3X-UI_AuTo/releases/tag/v3.11.0-chain.1)（`linux-amd64` / `linux-arm64`）。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Fyzzp0o0/3X-UI_AuTo/main/install-chain.sh -o install-chain.sh
