@@ -59,7 +59,7 @@ ChainForge 补上的是**批发层**：
 
 ### 方式 A：一键安装（Linux + systemd）
 
-当前最新发布：[v3.11.0-chain.1](https://github.com/Fyzzp0o0/3X-UI_AuTo/releases/tag/v3.11.0-chain.1)（`linux-amd64` / `linux-arm64`）。
+当前最新发布：[v3.11.0-chain.2](https://github.com/Fyzzp0o0/3X-UI_AuTo/releases/tag/v3.11.0-chain.2)（`linux-amd64` / `linux-arm64`，修复核心二进制命名）。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Fyzzp0o0/3X-UI_AuTo/main/install-chain.sh -o install-chain.sh
