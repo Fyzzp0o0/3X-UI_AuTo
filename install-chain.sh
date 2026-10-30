@@ -12,6 +12,7 @@ SERVICE_FILE="/etc/systemd/system/x-ui.service"
 SERVICE_NAME="x-ui"
 
 MODE="install"
+ARCHIVE=""
 VERSION=""
 LOCAL_TARBALL=""
 PORT=""
@@ -241,12 +242,14 @@ resolve_version() {
 }
 
 download_release() {
-  local url="https://github.com/${REPO}/releases/download/${VERSION}/x-ui-linux-${ARCH}.tar.gz"
+  local name="x-ui-linux-${ARCH}.tar.gz"
+  local url="https://github.com/${REPO}/releases/download/${VERSION}/${name}"
+  ARCHIVE="$WORK_DIR/$name"
   info "Downloading ${VERSION} (${ARCH})..."
-  curl -fL --retry 3 --retry-delay 2 -o "$WORK_DIR/x-ui.tar.gz" "$url" \
+  curl -fL --retry 3 --retry-delay 2 -o "$ARCHIVE" "$url" \
     || die "Download failed: $url"
-  if curl -fsL --retry 2 -o "$WORK_DIR/x-ui.tar.gz.sha256" "${url}.sha256" 2>/dev/null; then
-    ( cd "$WORK_DIR" && sha256sum -c x-ui.tar.gz.sha256 >/dev/null ) \
+  if curl -fsL --retry 2 -o "$ARCHIVE.sha256" "${url}.sha256" 2>/dev/null; then
+    ( cd "$WORK_DIR" && sha256sum -c "${name}.sha256" >/dev/null ) \
       || die "Checksum verification failed for $url"
     info "Checksum verified."
   else
@@ -271,14 +274,15 @@ do_install() {
 
   if [ -n "$LOCAL_TARBALL" ]; then
     [ -f "$LOCAL_TARBALL" ] || die "Local tarball not found: $LOCAL_TARBALL"
-    cp "$LOCAL_TARBALL" "$WORK_DIR/x-ui.tar.gz"
+    ARCHIVE="$WORK_DIR/local.tar.gz"
+    cp "$LOCAL_TARBALL" "$ARCHIVE"
     info "Installing from local archive: $LOCAL_TARBALL"
   else
     resolve_version
     download_release
   fi
 
-  tar -xzf "$WORK_DIR/x-ui.tar.gz" -C "$WORK_DIR/src"
+  tar -xzf "$ARCHIVE" -C "$WORK_DIR/src"
   [ -x "$WORK_DIR/src/x-ui/x-ui" ] || die "Archive does not contain x-ui/x-ui."
 
   info "Stopping any running panel..."

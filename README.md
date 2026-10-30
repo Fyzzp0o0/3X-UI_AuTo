@@ -207,7 +207,7 @@ sudo bash install-chain.sh     # 升级到最新 Release（保留数据库与密
 make dist-stub                    # 让 go:embed 找到 dist 占位
 go test ./...                     # 全仓测试
 golangci-lint run ./internal/... . # 0 issues 是当前基线
-cd frontend && npm ci && npm test  # 单元 + 组件测试
+cd frontend && npm ci && npx vitest run --project unit --project components
 npm run build                      # 产出新 UI 到 internal/web/dist
 make chain-e2e XRAY_E2E_BINARY=/path/to/xray  # 真实核心端到端
 ```
