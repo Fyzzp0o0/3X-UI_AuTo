@@ -298,6 +298,16 @@ do_install() {
   cp -a "$WORK_DIR/src/x-ui/." "$INSTALL_DIR/"
   chmod +x "$INSTALL_DIR/x-ui"
 
+  # The panel resolves bin/xray-linux-<arch>; older artifacts shipped bin/xray.
+  if [ -x "$INSTALL_DIR/bin/xray" ] && [ ! -e "$INSTALL_DIR/bin/xray-linux-${ARCH}" ]; then
+    mv "$INSTALL_DIR/bin/xray" "$INSTALL_DIR/bin/xray-linux-${ARCH}"
+  fi
+  if [ -x "$INSTALL_DIR/bin/xray-linux-${ARCH}" ]; then
+    chmod +x "$INSTALL_DIR/bin/xray-linux-${ARCH}"
+  else
+    warn "bin/xray-linux-${ARCH} is missing from the archive; the panel will start but the core cannot run."
+  fi
+
   write_env_file
   write_service
   install_cli

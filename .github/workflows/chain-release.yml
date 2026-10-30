@@ -83,6 +83,7 @@ jobs:
           wget -q --tries=5 "https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/${XRAY_ASSET}"
           unzip -q "$XRAY_ASSET" -d dist/x-ui/bin
           rm -f dist/x-ui/bin/*.zip dist/x-ui/bin/README.md dist/x-ui/bin/LICENSE
+          mv "dist/x-ui/bin/xray" "dist/x-ui/bin/xray-linux-${{ matrix.arch }}"
           tar -C dist -czf "x-ui-linux-${{ matrix.arch }}.tar.gz" x-ui
           sha256sum "x-ui-linux-${{ matrix.arch }}.tar.gz" > "x-ui-linux-${{ matrix.arch }}.tar.gz.sha256"
           ls -lh "x-ui-linux-${{ matrix.arch }}.tar.gz"

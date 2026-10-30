@@ -223,6 +223,23 @@ make chain-e2e XRAY_E2E_BINARY=/path/to/xray  # 真实核心端到端
 
 > 说明：本仓库默认关闭了 Actions。发布前在 Settings → Actions 打开，并只保留 **Chain Release**（上游 CI/release/docker 工作流建议在 Actions 页面 Disable，避免缺少 secrets 的失败运行）。由 `GITHUB_TOKEN` 创建的 tag 不会再次触发其它工作流。
 
+## 故障排查
+
+**面板显示 Xray「停止」，日志出现 `fork/exec bin/xray-linux-amd64: no such file or directory`**
+
+发布包内的核心文件名与面板期望的不一致（面板固定查找 `bin/xray-linux-<arch>`）。安装脚本会做兼容重命名；若手工安装，执行：
+
+```bash
+cd /usr/local/x-ui/bin
+mv xray xray-linux-amd64        # arm64 机器改为 xray-linux-arm64
+chmod +x xray-linux-*
+systemctl restart x-ui
+systemctl status x-ui --no-pager
+pgrep -a xray
+```
+
+**面板能开但核心启动即退出**：先跑 `cd /usr/local/x-ui && ./bin/xray-linux-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') run -c bin/config.json` 看具体报错。
+
 ## 已知限制与路线图
 
 - **多节点下发未实现**：3X-UI 的 node-sync 契约只同步入站/客户端，出站与路由无法安全下发；需要扩展上游 API，列为独立里程碑。
