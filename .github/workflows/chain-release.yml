@@ -95,7 +95,7 @@ jobs:
             x-ui-linux-${{ matrix.arch }}.tar.gz
             x-ui-linux-${{ matrix.arch }}.tar.gz.sha256
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
